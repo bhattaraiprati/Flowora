@@ -1,0 +1,14 @@
+# Backend
+flowora-backend/node_modules/
+flowora-backend/dist/
+flowora-backend/.env
+
+# Frontend
+flowora-frontend/node_modules/
+flowora-frontend/.next/
+flowora-frontend/build/
+flowora-frontend/.env*
+
+# General
+*.log
+.DS_Store
