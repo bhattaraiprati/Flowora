@@ -1,8 +1,19 @@
 import {
-  Column, CreatedAt, DataType, Default,
-  Model, PrimaryKey, Table, Unique, UpdatedAt,
+  BelongsToMany,
+  Column,
+  CreatedAt,
+  DataType,
+  Default,
+  HasMany,
+  Model,
+  PrimaryKey,
+  Table,
+  Unique,
+  UpdatedAt,
 } from 'sequelize-typescript';
 import { UserRole, UserStatus } from '../common/enums';
+import { Organization } from './organization.model';
+import { OrganizationMember } from './organizationMember.model';
 
 @Table({
   tableName: 'users',
@@ -56,4 +67,12 @@ export class User extends Model {
 
   @UpdatedAt
   declare updated_at: Date;
+
+  // ASSOCIATIONS 
+
+  @HasMany(() => OrganizationMember)
+  declare organizationMemberships: OrganizationMember[];
+
+  @BelongsToMany(() => Organization, () => OrganizationMember)
+  declare organizations: Organization[];
 }

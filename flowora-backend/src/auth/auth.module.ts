@@ -10,6 +10,7 @@ import { QueueModule } from '../queue/queue.module';
 
 @Module({
   imports: [
+    QueueModule,
     SequelizeModule.forFeature([User]),
     PassportModule,
     JwtModule.registerAsync({

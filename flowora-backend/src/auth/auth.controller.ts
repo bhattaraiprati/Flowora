@@ -20,6 +20,6 @@ export class AuthController {
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: Response) {
     await this.authService.verifyEmail(token);
-    return res.redirect('http://localhost:5173/');
+    return res.redirect('http://localhost:3000/login');
   }
 }

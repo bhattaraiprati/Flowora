@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { User } from '../models/user.model';
+import { Organization } from '../models/organization.model';
+import { OrganizationMember } from '../models/organizationMember.model';
 
 @Module({
   imports: [
@@ -17,8 +19,9 @@ import { User } from '../models/user.model';
             rejectUnauthorized: false,
           },
         },
-        models: [User],   // register all models here
-        autoSync: true,   // set to false in production
+        models: [User, Organization, OrganizationMember],   // register all models here
+        autoLoadModels: true, // automatically load models
+        synchronize: true, // synchronize models with the database
         logging: false,
       }),
     }),

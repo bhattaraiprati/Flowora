@@ -13,7 +13,9 @@ export enum UserStatus {
 }
 
 export enum OrganizationStatus {
+  PENDING_APPROVAL = 'PENDING_APPROVAL', // default — awaiting super admin review
   ACTIVE = 'ACTIVE',
+  REJECTED = 'REJECTED',
   SUSPENDED = 'SUSPENDED',
 }
 

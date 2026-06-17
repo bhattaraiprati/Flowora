@@ -6,7 +6,8 @@ import { Queue } from 'bullmq';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { User } from '../models/user.model';
-import { UserRole, UserStatus } from '../common/enums';
+import { Organization } from '../models/organization.model';
+import { UserRole, UserStatus, OrganizationStatus } from '../common/enums';
 import { VerifyEmailJobData } from '../queue/verify-email.processor';
 
 @Injectable()
@@ -22,7 +23,7 @@ export class AuthService {
     if (existing) throw new ConflictException('User already exists');
 
     const userCount = await this.userModel.count();
-    const role = userCount === 0 ? UserRole.ADMIN : UserRole.USER;
+    const role = userCount === 0 ? UserRole.SUPER_ADMIN : UserRole.USER;
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -43,17 +44,32 @@ export class AuthService {
       userId: user.id,
       email,
       verificationToken,
-    } as VerifyEmailJobData, {
-      jobId: `verify-${email}`,
-    });
+    } as VerifyEmailJobData);
 
     return { message: 'User registered successfully. Please check your email to verify your account.' };
   }
 
   async login(email: string, password: string) {
-    const user = await this.userModel.findOne({ where: { email } });
+    const user = await this.userModel.findOne({
+      where: { email },
+      include: [{ model: Organization, through: { attributes: [] } }],
+    });
     if (!user) throw new NotFoundException('User not found');
     if (!user.is_verified) throw new ForbiddenException('Please verify your email before logging in.');
+
+    // Enforce organization approval checks
+    if (user.organizations && user.organizations.length > 0) {
+      const org = user.organizations[0];
+      if (org.status !== OrganizationStatus.ACTIVE) {
+        if (org.status === OrganizationStatus.PENDING_APPROVAL) {
+          throw new ForbiddenException('Your organization is pending approval by the super admin.');
+        } else if (org.status === OrganizationStatus.REJECTED) {
+          throw new ForbiddenException('Your organization registration has been rejected.');
+        } else if (org.status === OrganizationStatus.SUSPENDED) {
+          throw new ForbiddenException('Your organization has been suspended.');
+        }
+      }
+    }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) throw new UnauthorizedException('Invalid credentials');
@@ -63,6 +79,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       role: user.role,
+      organizationId: user.organizations?.[0]?.id || null,
     });
 
     return { token, message: 'Login successful' };
@@ -78,6 +95,6 @@ export class AuthService {
       status: UserStatus.ACTIVE,
     });
 
-    return { redirect: 'http://localhost:5173/' };
+    return { redirect: 'http://localhost:3000/login' };
   }
 }

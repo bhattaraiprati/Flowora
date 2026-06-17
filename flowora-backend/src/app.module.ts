@@ -11,13 +11,14 @@ import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
 import jwtConfig from './config/jwt.config';
 import appConfig from './config/app.config';
+import mailConfig from './config/mail.config';
 
 @Module({
    imports: [
     ConfigModule.forRoot({
       isGlobal: true,  
       envFilePath: '.env',
-      load: [databaseConfig, redisConfig, jwtConfig, appConfig],
+      load: [databaseConfig, redisConfig, jwtConfig, appConfig, mailConfig],
     }),
     AuthModule,
     UserModule,
