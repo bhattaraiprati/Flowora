@@ -14,6 +14,7 @@ type Tab = 'login' | 'register';
 
 const Page = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
+  const { isAuthenticated, _hasHydrated } = useAuthStore();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>('login');
@@ -31,6 +32,13 @@ const Page = () => {
     confirmPassword: '',
   });
 
+  // Redirect already-authenticated users away from login
+  useEffect(() => {
+    if (_hasHydrated && isAuthenticated) {
+      router.replace('/dashboard');
+    }
+  }, [_hasHydrated, isAuthenticated, router]);
+
   // Sync tab search param if present on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -46,10 +54,10 @@ const Page = () => {
     mutationFn: (data) => authApi.login(data),
     onSuccess: ({ user, token }) => {
       setAuth(user, token);
-      router.push('/dashboard');
+      router.replace('/dashboard');
     },
     onError: (err: Error) => {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      setError('Login failed. Please check your credentials.');
     },
   });
 
@@ -61,7 +69,7 @@ const Page = () => {
         router.push('/dashboard');
       } else {
         setActiveTab('login');
-        setError('Account created successfully! Please sign in.');
+        setError('Account created successfully! Please check mail for verification.');
       }
     },
     onError: (err: Error) => {

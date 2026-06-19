@@ -36,10 +36,10 @@ export default function Home() {
                   Sign In
                 </Link>
                 <Link
-                  href="/login?tab=register"
+                  href="/registerOrganization"
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-brand text-white hover:bg-brand-dark transition-all shadow-sm active:scale-[0.98]"
                 >
-                  Get Started Free
+                  Register Organization
                 </Link>
               </>
             )}
