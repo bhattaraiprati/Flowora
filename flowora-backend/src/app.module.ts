@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MailModule } from './mail/mail.module';
 import { DatabaseModule } from './database/database.module';
 import { QueueModule } from './queue/queue.module';
+import { OrganizationModule } from './organization/organization.module';
 import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
 import jwtConfig from './config/jwt.config';
@@ -25,9 +26,9 @@ import mailConfig from './config/mail.config';
     MailModule,
     DatabaseModule,
     QueueModule,
+    OrganizationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-

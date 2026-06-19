@@ -7,12 +7,13 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { QueueModule } from '../queue/queue.module';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
     QueueModule,
     SequelizeModule.forFeature([User]),
-    PassportModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -22,15 +23,16 @@ import { QueueModule } from '../queue/queue.module';
         return {
           secret: config.getOrThrow<string>('jwt.secret'),
           signOptions: {
-            expiresIn: expiresIn as any, // Quick & reliable
-            // expiresIn: expiresIn as Parameters<typeof jwt.sign>[2]['expiresIn'], // Most precise
+            expiresIn: expiresIn as any,
           },
         };
       },
+      
     }),
     QueueModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtStrategy, PassportModule, JwtModule],
 })
 export class AuthModule {}

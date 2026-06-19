@@ -69,7 +69,7 @@ export class Organization extends Model {
   @UpdatedAt
   declare updated_at: Date;
 
-  // ==================== ASSOCIATIONS ====================
+  // ASSOCIATIONS 
 
   @HasMany(() => OrganizationMember)
   declare members: OrganizationMember[];

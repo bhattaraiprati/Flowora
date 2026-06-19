@@ -20,39 +20,56 @@ export class UserService {
     @InjectQueue('verify-email-processing') private readonly emailQueue: Queue,
   ) {}
 
-  async registerOrganizer(dto: RegisterOrganization) {
+  /**
+   * Generate Gravatar URL from email
+   */
+  private generateGravatarUrl(email: string): string {
+    const emailHash = crypto
+      .createHash('md5')
+      .update(email.toLowerCase().trim())
+      .digest('hex');
+    return `https://www.gravatar.com/avatar/${emailHash}?d=robohash`;
+  }
+
+  async registerOrganizer(dto: RegisterOrganization): Promise<{ message: string }> {
     const email = dto.email.toLowerCase().trim();
     const slug = dto.slug.toLowerCase().trim();
 
-    const existingUser = await this.userModel.findOne({ where: { email } });
+    // 1. Validate uniqueness
+    const [existingUser, existingOrg] = await Promise.all([
+      this.userModel.findOne({ where: { email } }),
+      this.orgModel.findOne({ where: { slug } }),
+    ]);
+
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
 
-    const existingOrg = await this.orgModel.findOne({ where: { slug } });
     if (existingOrg) {
       throw new ConflictException('Organization slug is already taken');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    // 2. Prepare user properties
+    const hashedPassword = await bcrypt.hash(dto.password, 12); // Use 12 rounds for better security
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const emailHash = crypto.createHash('md5').update(email).digest('hex');
-    const profilePicture = `https://www.gravatar.com/avatar/${emailHash}?d=robohash`;
+    const profilePicture = this.generateGravatarUrl(email);
 
-    return await this.userModel.sequelize!.transaction(async (t) => {
-      const org = await this.orgModel.create(
+    // 3. Execute database operations in a transaction
+    return await this.userModel.sequelize!.transaction(async (transaction) => {
+      // Create Organization
+      const organization = await this.orgModel.create(
         {
           name: dto.organizatioName,
           slug,
           industry: dto.industry,
           size: dto.teamSize,
-          website: dto.website,
-          description: dto.description,
+          website: dto.website || null,
+          description: dto.description || null,
         },
-        { transaction: t },
+        { transaction },
       );
 
-      // Create User as ADMIN of that org
+      // Create User as ADMIN
       const user = await this.userModel.create(
         {
           name: dto.name,
@@ -64,21 +81,21 @@ export class UserService {
           verification_token: verificationToken,
           status: UserStatus.INACTIVE,
         },
-        { transaction: t },
+        { transaction },
       );
 
-      // Create OrganizationMember mapping
+      // Create OrganizationMember relationship
       await this.memberModel.create(
         {
-          org_id: org.id,
+          org_id: organization.id,
           user_id: user.id,
-          role: OrgMemberRole.ADMIN,
+          role: OrgMemberRole.OWNER,
           status: OrgMemberStatus.ACTIVE,
         },
-        { transaction: t },
+        { transaction },
       );
 
-      // 4. Dispatch verification email job
+      // 4. Queue verification email (outside transaction to avoid rollback issues)
       await this.emailQueue.add('send-verification-email', {
         userId: user.id,
         email,

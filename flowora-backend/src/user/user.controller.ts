@@ -8,7 +8,7 @@ export class UserController {
     constructor(private userService: UserService){}
 
     @Post('registerOrganizer')
-    registerOrganizer(@Body() body: RegisterOrganization){
+    registerOrganizer(@Body() body: RegisterOrganization) {
         return this.userService.registerOrganizer(body);
     }
 }
