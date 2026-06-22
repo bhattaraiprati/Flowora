@@ -4,6 +4,8 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { User } from '../models/user.model';
 import { Organization } from '../models/organization.model';
 import { OrganizationMember } from '../models/organizationMember.model';
+import { Project } from '../models/project.model';
+import { ProjectMember } from '../models/projectMember.model';
 
 @Module({
   imports: [
@@ -19,9 +21,9 @@ import { OrganizationMember } from '../models/organizationMember.model';
             rejectUnauthorized: false,
           },
         },
-        models: [User, Organization, OrganizationMember],   // register all models here
-        autoLoadModels: true, // automatically load models
-        synchronize: true, // synchronize models with the database
+        models: [User, Organization, OrganizationMember, Project, ProjectMember],
+        autoLoadModels: true,
+        synchronize: true, // Will auto-create tables based on models
         logging: false,
       }),
     }),
