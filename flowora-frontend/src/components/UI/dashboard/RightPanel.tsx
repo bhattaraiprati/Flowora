@@ -1,6 +1,7 @@
 "use client";
 
 import { CreateboardModal } from "@/components/modal/createBoardModal";
+import { useParams } from "next/navigation";
 import { useState } from "react";
 
 const recentBoards = [
@@ -53,6 +54,8 @@ const statusConfig: Record<string, { label: string; color: string; dot: string }
 };
 
 export default function RightPanel() {
+  const params = useParams();
+    const organizationId = params.organizationId as string;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -149,7 +152,11 @@ export default function RightPanel() {
           </button>
         </div>
       </div>
-      < CreateboardModal  isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}  />
+
+      < CreateboardModal  
+      isOpen={isModalOpen} 
+      onClose={() => setIsModalOpen(false)}  
+      organizationId={organizationId} />
     </aside>
   );
 }

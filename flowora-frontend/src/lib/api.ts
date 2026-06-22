@@ -27,33 +27,56 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Clear all persisted auth state
-      localStorage.removeItem('token');
-      localStorage.removeItem('auth-storage'); // Zustand persist key
-      if (typeof document !== 'undefined') {
-        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('auth-storage'); // Zustand persist key
+        if (typeof document !== 'undefined') {
+          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        }
+
+        // Only redirect if not already on login page
+        if (!window.location.pathname.includes('/login')) {
+          window.location.replace('/login');
+        }
       }
-      // Hard redirect so React state is fully reset
-      window.location.replace('/login');
     }
     return Promise.reject(error);
   }
 );
 
 export const authApi = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  login: async (credentials: LoginCredentials): Promise<{
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      organizationId: string | null;
+    };
+    token: string;
+    expiresIn: string;
+    expiresAt: number;
+    message: string;
+  }> => {
     const { data } = await api.post('/api/auth/login', credentials);
     return data;
   },
 
-  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
+  register: async (credentials: RegisterCredentials): Promise<{ message: string }> => {
     const { data } = await api.post('/api/auth/signup', credentials);
     return data;
   },
 
-  // Add logout later
   logout: async () => {
-    // Call backend logout if exists
-    localStorage.removeItem('token');
+    // Clear client-side state
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('auth-storage');
+
+      if (typeof document !== 'undefined') {
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      }
+    }
   },
 };
 export const userApi = {
@@ -82,4 +105,54 @@ export const organizationApi = {
     const response = await api.post('/api/user/registerOrganizer', data);
     return response.data;
   }
+};
+
+export const projectApi = {
+  createProject: async (
+    organizationId: string,
+    data: {
+      title: string;
+      description?: string;
+      visibility: string;
+      color?: string;
+      icon?: string;
+    }
+  ) => {
+    const response = await api.post(`/api/projects/organization/${organizationId}`, data);
+    return response.data;
+  },
+
+  getOrganizationProjects: async (organizationId: string) => {
+    const response = await api.get(`/api/projects/organization/${organizationId}`);
+    return response.data;
+  },
+
+  getProject: async (projectId: string) => {
+    const response = await api.get(`/api/projects/${projectId}`);
+    return response.data;
+  },
+
+  updateProject: async (
+    projectId: string,
+    updates: {
+      title?: string;
+      description?: string;
+      visibility?: string;
+      color?: string;
+      icon?: string;
+    }
+  ) => {
+    const response = await api.patch(`/api/projects/${projectId}`, updates);
+    return response.data;
+  },
+
+  deleteProject: async (projectId: string) => {
+    const response = await api.delete(`/api/projects/${projectId}`);
+    return response.data;
+  },
+
+  toggleFavorite: async (projectId: string) => {
+    const response = await api.patch(`/api/projects/${projectId}/favorite`);
+    return response.data;
+  },
 };

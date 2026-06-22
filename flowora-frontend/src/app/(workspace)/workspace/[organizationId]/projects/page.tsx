@@ -1,33 +1,57 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import ProjectCard from '@/components/UI/project/ProjectCard';
-import { CreateProjectModal } from '@/components/modal/CreateProjectModal';
+import { CreateboardModal } from '@/components/modal/createBoardModal';
+import { projectApi } from '@/lib/api';
+import { Project } from '@/types/ProjectInterface';
+import { useAuthStore } from '@/store/authStore';
 
 export default function ProjectsPage() {
   const params = useParams();
+  const router = useRouter();
   const organizationId = params.organizationId as string;
+  const { isTokenValid, clearAuth } = useAuthStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'IN_REVIEW' | 'COMPLETED' | 'PAUSED'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: projects = [], isLoading } = useQuery({
+  // Token validation
+  useEffect(() => {
+    if (!isTokenValid()) {
+      clearAuth();
+      router.replace('/login');
+    }
+  }, [isTokenValid, clearAuth, router]);
+
+  const { data: projects = [], isLoading, isError, error } = useQuery<Project[]>({
     queryKey: ['projects', organizationId],
-    // queryFn: () => projectApi.getProjects(organizationId),
-    queryFn: () => undefined,
+    queryFn: () => projectApi.getOrganizationProjects(organizationId),
     enabled: !!organizationId,
+    retry: false,
   });
 
+  // Handle authentication errors
+  useEffect(() => {
+    if (isError && error) {
+      const axiosError = error as any;
+      if (axiosError?.response?.status === 401) {
+        clearAuth();
+        router.replace('/login');
+      }
+    }
+  }, [isError, error, clearAuth, router]);
+
   const filteredProjects = projects
-    .filter((project: any) =>
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    .filter((project: Project) =>
+      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchTerm.toLowerCase())
     )
-    .filter((project: any) => {
+    .filter((project: Project) => {
       if (statusFilter === 'ALL') return true;
       return project.status === statusFilter;
     });
@@ -107,7 +131,7 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      <CreateProjectModal
+      <CreateboardModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         organizationId={organizationId}

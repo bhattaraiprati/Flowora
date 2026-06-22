@@ -11,12 +11,21 @@ import { useAuthStore } from '@/store/authStore';
 
 export default function DashboardIndexPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, isTokenValid, clearAuth } = useAuthStore();
 
-  const { data: organizations, isLoading, isError } = useQuery({
+  const { data: organizations, isLoading, isError, error } = useQuery({
     queryKey: ['myOrganizations'],
     queryFn: organizationApi.getMyOrganizations,
+    retry: false,
   });
+
+  // Check token validity before making requests
+  useEffect(() => {
+    if (!isTokenValid()) {
+      clearAuth();
+      router.replace('/login');
+    }
+  }, [isTokenValid, clearAuth, router]);
 
   useEffect(() => {
     if (organizations && organizations.length > 0) {
@@ -24,6 +33,17 @@ export default function DashboardIndexPage() {
       router.replace(`/workspace/${organizations[0].id}/dashboard`);
     }
   }, [organizations, router]);
+
+  // Handle authentication errors
+  useEffect(() => {
+    if (isError && error) {
+      const axiosError = error as any;
+      if (axiosError?.response?.status === 401) {
+        clearAuth();
+        router.replace('/login');
+      }
+    }
+  }, [isError, error, clearAuth, router]);
 
   if (isLoading) {
     return (

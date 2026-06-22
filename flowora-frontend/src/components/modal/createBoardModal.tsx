@@ -2,6 +2,8 @@
 
 import { Globe, Lock, LayoutGrid, SquarePlus, X } from "lucide-react";
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { projectApi } from "@/lib/api";
 
 type Visibility = "public" | "private" | "workspace";
 
@@ -47,20 +49,80 @@ const visibilityOptions: {
   },
 ];
 
+const colorOptions = [
+  { value: "#6366f1", label: "Indigo" },
+  { value: "#8b5cf6", label: "Purple" },
+  { value: "#ec4899", label: "Pink" },
+  { value: "#f43f5e", label: "Rose" },
+  { value: "#f97316", label: "Orange" },
+  { value: "#eab308", label: "Yellow" },
+  { value: "#22c55e", label: "Green" },
+  { value: "#06b6d4", label: "Cyan" },
+  { value: "#3b82f6", label: "Blue" },
+  { value: "#64748b", label: "Slate" },
+];
+
 export function CreateboardModal({
   isOpen,
   onClose,
+  organizationId
 }: {
   isOpen: boolean;
   onClose: () => void;
+  organizationId:string
 }) {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("workspace");
+  const [selectedColor, setSelectedColor] = useState("#6366f1");
+  const [error, setError] = useState<string | null>(null);
+
+  const createProjectMutation = useMutation({
+    mutationFn: (data: {
+      title: string;
+      description?: string;
+      visibility: string;
+      color: string;
+    }) => projectApi.createProject(organizationId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects", organizationId] });
+      handleClose();
+    },
+    onError: (err: any) => {
+      setError(err.response?.data?.message || "Failed to create project. Please try again.");
+    },
+  });
 
   const handleClose = () => {
     setTitle("");
+    setDescription("");
     setVisibility("workspace");
+    setSelectedColor("#6366f1");
+    setError(null);
     onClose();
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!title.trim()) {
+      setError("Project title is required");
+      return;
+    }
+
+    if (title.trim().length < 3) {
+      setError("Project title must be at least 3 characters");
+      return;
+    }
+
+    createProjectMutation.mutate({
+      title: title.trim(),
+      description: description.trim() || undefined,
+      visibility: visibility.toUpperCase(),
+      color: selectedColor,
+    });
   };
 
   if (!isOpen) return null;
@@ -88,21 +150,69 @@ export function CreateboardModal({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-5">
-          {/* Board Title */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">
-              Board title <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Product Roadmap, Sprint #5…"
-              className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 placeholder:text-slate-400 transition"
-            />
-          </div>
+        <form onSubmit={handleSubmit}>
+          {/* Body */}
+          <div className="p-6 space-y-5 max-h-[calc(100vh-240px)] overflow-y-auto">
+            {error && (
+              <div className="px-4 py-3 rounded-xl text-sm bg-red-50 text-red-700 border border-red-200">
+                {error}
+              </div>
+            )}
+
+            {/* Board Title */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Board title <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Product Roadmap, Sprint #5…"
+                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 placeholder:text-slate-400 transition"
+                maxLength={100}
+                disabled={createProjectMutation.isPending}
+              />
+              <p className="text-xs text-gray-500">{title.length}/100</p>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">
+                Description (Optional)
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Briefly describe the purpose of this board..."
+                rows={3}
+                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 placeholder:text-slate-400 transition resize-none"
+                maxLength={500}
+                disabled={createProjectMutation.isPending}
+              />
+            </div>
+
+            {/* Color Picker */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Board Color</label>
+              <div className="flex flex-wrap gap-2">
+                {colorOptions.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => setSelectedColor(color.value)}
+                    className={`w-10 h-10 rounded-lg border-2 transition-all ${
+                      selectedColor === color.value
+                        ? "border-gray-900 scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                    aria-label={`Select ${color.label} color`}
+                    disabled={createProjectMutation.isPending}
+                  />
+                ))}
+              </div>
+            </div>
 
           {/* Visibility */}
           <div className="space-y-2">
@@ -152,22 +262,35 @@ export function CreateboardModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 pb-6 flex gap-3">
-          <button
-            onClick={handleClose}
-            className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
-          >
-            Cancel
-          </button>
-          <button
-            disabled={!title.trim()}
-            className="flex-1 py-2.5 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-dark transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            <SquarePlus className="w-4 h-4" />
-            Create Board
-          </button>
-        </div>
+          {/* Footer */}
+          <div className="px-6 pb-6 flex gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={createProjectMutation.isPending}
+              className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!title.trim() || createProjectMutation.isPending}
+              className="flex-1 py-2.5 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-dark transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {createProjectMutation.isPending ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <SquarePlus className="w-4 h-4" />
+                  Create Board
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

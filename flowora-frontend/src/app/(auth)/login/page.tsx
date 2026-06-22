@@ -14,17 +14,17 @@ type Tab = 'login' | 'register';
 
 const Page = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
-  const { isAuthenticated, _hasHydrated } = useAuthStore();
+  const { isAuthenticated, _hasHydrated, isTokenValid } = useAuthStore();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>('login');
   const [error, setError] = useState<string | null>(null);
-  
+
   const [loginForm, setLoginForm] = useState<LoginCredentials>({
     email: '',
     password: '',
   });
-  
+
   const [registerForm, setRegisterForm] = useState<RegisterFormData>({
     name: '',
     email: '',
@@ -32,12 +32,12 @@ const Page = () => {
     confirmPassword: '',
   });
 
-  // Redirect already-authenticated users away from login
+  // Redirect already-authenticated users with valid tokens away from login
   useEffect(() => {
-    if (_hasHydrated && isAuthenticated) {
+    if (_hasHydrated && isAuthenticated && isTokenValid()) {
       router.replace('/dashboard');
     }
-  }, [_hasHydrated, isAuthenticated, router]);
+  }, [_hasHydrated, isAuthenticated, isTokenValid, router]);
 
   // Sync tab search param if present on mount
   useEffect(() => {
@@ -50,10 +50,26 @@ const Page = () => {
     }
   }, []);
 
-  const loginMutation = useMutation<{ user: any; token: string }, Error, LoginCredentials>({
+  const loginMutation = useMutation<
+    {
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: string;
+        organizationId: string | null;
+      };
+      token: string;
+      expiresIn: string;
+      expiresAt: number;
+      message: string;
+    },
+    Error,
+    LoginCredentials
+  >({
     mutationFn: (data) => authApi.login(data),
-    onSuccess: ({ user, token }) => {
-      setAuth(user, token);
+    onSuccess: ({ user, token, expiresAt }) => {
+      setAuth(user, token, expiresAt);
       router.replace('/dashboard');
     },
     onError: (err: Error) => {
@@ -61,16 +77,11 @@ const Page = () => {
     },
   });
 
-  const registerMutation = useMutation<{ user: any; token: string } | null, Error, RegisterCredentials>({
+  const registerMutation = useMutation<{ message: string }, Error, RegisterCredentials>({
     mutationFn: (data) => authApi.register(data),
     onSuccess: (result) => {
-      if (result?.user && result?.token) {
-        setAuth(result.user, result.token);
-        router.push('/dashboard');
-      } else {
-        setActiveTab('login');
-        setError('Account created successfully! Please check mail for verification.');
-      }
+      setActiveTab('login');
+      setError('Account created successfully! Please check your email for verification.');
     },
     onError: (err: Error) => {
       setError(err.message || 'Registration failed. Please try again.');
