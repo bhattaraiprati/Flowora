@@ -22,7 +22,9 @@ export enum OrganizationStatus {
 export enum OrgMemberRole {
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
   MEMBER = 'MEMBER',
+  VIEWER = 'VIEWER',
 }
 
 export enum OrgMemberStatus {
@@ -35,7 +37,12 @@ export enum InvitationStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
   EXPIRED = 'EXPIRED',
-  CANCELLED = 'CANCELLED',
+  REVOKED = 'REVOKED',
+}
+
+export enum InvitationScope {
+  ORGANIZATION = 'ORGANIZATION',
+  PROJECT = 'PROJECT',
 }
 
 
@@ -48,12 +55,13 @@ export enum ProjectStatus {
 export enum ProjectMemberRole {
   MANAGER = 'MANAGER',
   MEMBER = 'MEMBER',
+  VIEWER = 'VIEWER',
 }
 
 export enum TaskStatus {
   TODO = 'TODO',
   IN_PROGRESS = 'IN_PROGRESS',
-  IN_REVIEW = 'IN_REVIEW',
+  REVIEW = 'REVIEW',
   DONE = 'DONE',
 }
 

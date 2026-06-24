@@ -4,12 +4,14 @@ import { OrganizationController } from './organization.controller';
 import { OrganizationService } from './organization.service';
 import { Organization } from '../models/organization.model';
 import { OrganizationMember } from '../models/organizationMember.model';
+import { Project } from '../models/project.model';
+import { ProjectMember } from '../models/projectMember.model';
 import { User } from '../models/user.model';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    SequelizeModule.forFeature([Organization, OrganizationMember, User]),
+    SequelizeModule.forFeature([Organization, OrganizationMember, Project, ProjectMember, User]),
     AuthModule,
   ],
   controllers: [OrganizationController],

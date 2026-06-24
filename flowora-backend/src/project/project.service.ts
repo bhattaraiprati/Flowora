@@ -94,10 +94,7 @@ export class ProjectService {
     userId: string,
     organizationId: string,
   ): Promise<Project[]> {
-    // Verify organization access
-    await this.verifyOrganizationAccess(userId, organizationId);
-
-    // Get user's role in organization
+    // Check if user is an organization member
     const orgMembership = await this.orgMemberModel.findOne({
       where: {
         user_id: userId,
@@ -105,25 +102,48 @@ export class ProjectService {
       },
     });
 
+    // Get all projects user is a member of in this organization
+    const userProjectMemberships = await this.projectMemberModel.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: this.projectModel,
+          as: 'project',
+          where: { org_id: organizationId },
+          attributes: ['id'],
+        },
+      ],
+      attributes: ['project_id'],
+    });
+
+    const userProjectIds = userProjectMemberships.map((pm) => pm.project_id);
+
+    // User must be either an org member OR have at least one project membership in this org
+    if (!orgMembership && userProjectIds.length === 0) {
+      throw new ForbiddenException('You do not have access to this organization');
+    }
+
     // Fetch projects based on visibility and user access
     const whereConditions: any = {
       org_id: organizationId,
       status: ProjectStatus.ACTIVE,
     };
 
-    // If not owner/admin, only show workspace/public projects or projects user is a member of
-    if (orgMembership?.role === OrgMemberRole.MEMBER) {
-      const userProjects = await this.projectMemberModel.findAll({
-        where: { user_id: userId },
-        attributes: ['project_id'],
-      });
-
-      const projectIds = userProjects.map((pm) => pm.project_id);
-
+    // If user is an ADMIN or OWNER, show all projects
+    if (orgMembership && (orgMembership.role === OrgMemberRole.ADMIN || orgMembership.role === OrgMemberRole.OWNER)) {
+      // Show all projects in the organization
+    }
+    // If user is an org MEMBER or MANAGER, show workspace/public projects + their assigned projects
+    else if (orgMembership && (orgMembership.role === OrgMemberRole.MEMBER || orgMembership.role === OrgMemberRole.MANAGER)) {
       whereConditions.$or = [
         { visibility: [ProjectVisibility.WORKSPACE, ProjectVisibility.PUBLIC] },
-        { id: projectIds },
+        { id: userProjectIds },
       ];
+    }
+    // If user has no org membership but has project memberships (invited directly to projects)
+    else if (!orgMembership && userProjectIds.length > 0) {
+      // Only show projects they are directly members of
+      whereConditions.id = userProjectIds;
     }
 
     const projects = await this.projectModel.findAll({
@@ -182,13 +202,25 @@ export class ProjectService {
       throw new NotFoundException('Project not found');
     }
 
-    // Verify user has access to organization
-    await this.verifyOrganizationAccess(userId, project.org_id);
+    // Check if user is an organization member
+    const orgMembership = await this.orgMemberModel.findOne({
+      where: {
+        user_id: userId,
+        org_id: project.org_id,
+      },
+    });
+
+    // Check if user is a project member
+    const isProjectMember = project.members.some((m) => m.user_id === userId);
+
+    // User must be either an org member OR a project member
+    if (!orgMembership && !isProjectMember) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
 
     // Check if user has access to private project
     if (project.visibility === ProjectVisibility.PRIVATE) {
-      const isMember = project.members.some((m) => m.user_id === userId);
-      if (!isMember) {
+      if (!isProjectMember) {
         throw new ForbiddenException('You do not have access to this private project');
       }
     }
@@ -213,20 +245,29 @@ export class ProjectService {
       throw new NotFoundException('Project not found');
     }
 
-    // Verify organization access
-    await this.verifyOrganizationAccess(userId, project.org_id);
-
-    // Check if user is project manager
-    const membership = await this.projectMemberModel.findOne({
+    // Check if user is an org admin/owner
+    const orgMembership = await this.orgMemberModel.findOne({
       where: {
-        project_id: projectId,
         user_id: userId,
-        role: ProjectMemberRole.MANAGER,
+        org_id: project.org_id,
       },
     });
 
-    if (!membership) {
-      throw new ForbiddenException('Only project managers can update the project');
+    const isOrgAdmin = orgMembership && (orgMembership.role === OrgMemberRole.ADMIN || orgMembership.role === OrgMemberRole.OWNER);
+
+    // Check if user is project manager
+    const projectMembership = await this.projectMemberModel.findOne({
+      where: {
+        project_id: projectId,
+        user_id: userId,
+      },
+    });
+
+    const isProjectManager = projectMembership && projectMembership.role === ProjectMemberRole.MANAGER;
+
+    // User must be either org admin/owner OR project manager
+    if (!isOrgAdmin && !isProjectManager) {
+      throw new ForbiddenException('Only organization admins or project managers can update the project');
     }
 
     await project.update(updates);
@@ -272,21 +313,32 @@ export class ProjectService {
       throw new NotFoundException('Project not found');
     }
 
-    // Verify organization access
-    await this.verifyOrganizationAccess(userId, project.org_id);
+    // Check if user is the creator
+    const isCreator = project.created_by === userId;
 
-    // Only creator or org admin can delete
-    if (project.created_by !== userId) {
-      const orgMembership = await this.orgMemberModel.findOne({
-        where: {
-          user_id: userId,
-          org_id: project.org_id,
-        },
-      });
+    // Check if user is an org admin/owner
+    const orgMembership = await this.orgMemberModel.findOne({
+      where: {
+        user_id: userId,
+        org_id: project.org_id,
+      },
+    });
 
-      if (!orgMembership || orgMembership.role === OrgMemberRole.MEMBER) {
-        throw new ForbiddenException('Only project creator or organization admin can delete the project');
-      }
+    const isOrgAdmin = orgMembership && (orgMembership.role === OrgMemberRole.ADMIN || orgMembership.role === OrgMemberRole.OWNER);
+
+    // Check if user is project manager
+    const projectMembership = await this.projectMemberModel.findOne({
+      where: {
+        project_id: projectId,
+        user_id: userId,
+      },
+    });
+
+    const isProjectManager = projectMembership && projectMembership.role === ProjectMemberRole.MANAGER;
+
+    // Only creator, org admin/owner, or project manager can delete
+    if (!isCreator && !isOrgAdmin && !isProjectManager) {
+      throw new ForbiddenException('Only project creator, organization admin, or project manager can delete the project');
     }
 
     // Archive instead of hard delete
@@ -308,21 +360,30 @@ export class ProjectService {
       throw new NotFoundException('Project not found');
     }
 
-    // Verify organization access
-    await this.verifyOrganizationAccess(userId, project.org_id);
+    // Check if user is an organization member
+    const orgMembership = await this.orgMemberModel.findOne({
+      where: {
+        user_id: userId,
+        org_id: project.org_id,
+      },
+    });
+
+    // Check if user is a project member
+    const projectMembership = await this.projectMemberModel.findOne({
+      where: {
+        project_id: projectId,
+        user_id: userId,
+      },
+    });
+
+    // User must be either an org member OR a project member
+    if (!orgMembership && !projectMembership) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
 
     // Check access for private projects
-    if (project.visibility === ProjectVisibility.PRIVATE) {
-      const isMember = await this.projectMemberModel.findOne({
-        where: {
-          project_id: projectId,
-          user_id: userId,
-        },
-      });
-
-      if (!isMember) {
-        throw new ForbiddenException('You do not have access to this private project');
-      }
+    if (project.visibility === ProjectVisibility.PRIVATE && !projectMembership) {
+      throw new ForbiddenException('You do not have access to this private project');
     }
 
     await project.update({ is_favorite: !project.is_favorite });

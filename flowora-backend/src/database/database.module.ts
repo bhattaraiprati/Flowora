@@ -6,6 +6,8 @@ import { Organization } from '../models/organization.model';
 import { OrganizationMember } from '../models/organizationMember.model';
 import { Project } from '../models/project.model';
 import { ProjectMember } from '../models/projectMember.model';
+import { Task } from '../models/task.model';
+import { Invitation } from '../models/invitation.model';
 
 @Module({
   imports: [
@@ -21,7 +23,7 @@ import { ProjectMember } from '../models/projectMember.model';
             rejectUnauthorized: false,
           },
         },
-        models: [User, Organization, OrganizationMember, Project, ProjectMember],
+        models: [User, Organization, OrganizationMember, Project, ProjectMember, Task, Invitation],
         autoLoadModels: true,
         synchronize: true, // Will auto-create tables based on models
         logging: false,

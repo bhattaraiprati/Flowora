@@ -9,6 +9,9 @@ import { DatabaseModule } from './database/database.module';
 import { QueueModule } from './queue/queue.module';
 import { OrganizationModule } from './organization/organization.module';
 import { ProjectModule } from './project/project.module';
+import { TaskModule } from './task/task.module';
+import { InvitationModule } from './invitation/invitation.module';
+import { MemberModule } from './member/member.module';
 import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
 import jwtConfig from './config/jwt.config';
@@ -29,6 +32,9 @@ import mailConfig from './config/mail.config';
     QueueModule,
     OrganizationModule,
     ProjectModule,
+    TaskModule,
+    InvitationModule,
+    MemberModule,
   ],
   controllers: [AppController],
   providers: [AppService],
