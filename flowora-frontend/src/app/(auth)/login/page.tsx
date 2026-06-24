@@ -52,16 +52,16 @@ const Page = () => {
 
   const loginMutation = useMutation<
     {
+      token: string;
       user: {
         id: string;
         name: string;
         email: string;
         role: string;
-        organizationId: string | null;
+        avatarInitials?: string;
       };
-      token: string;
-      expiresIn: string;
       expiresAt: number;
+      expiresIn: string;
       message: string;
     },
     Error,
@@ -70,14 +70,28 @@ const Page = () => {
     mutationFn: (data) => authApi.login(data),
     onSuccess: ({ user, token, expiresAt }) => {
       setAuth(user, token, expiresAt);
-      router.replace('/dashboard');
+
+      const redirectUrl = localStorage.getItem('redirect_after_login');
+      if (redirectUrl) {
+        localStorage.removeItem('redirect_after_login');
+        router.replace(redirectUrl);
+      } else {
+        router.replace('/dashboard');
+      }
     },
     onError: (err: Error) => {
       setError('Login failed. Please check your credentials.');
     },
   });
 
-  const registerMutation = useMutation<{ message: string }, Error, RegisterCredentials>({
+  const registerMutation = useMutation<{
+    message: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+    };
+  }, Error, RegisterCredentials>({
     mutationFn: (data) => authApi.register(data),
     onSuccess: (result) => {
       setActiveTab('login');

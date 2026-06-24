@@ -46,23 +46,30 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<{
+    token: string;
     user: {
       id: string;
       name: string;
       email: string;
       role: string;
-      organizationId: string | null;
+      profile_picture?: string;
     };
-    token: string;
-    expiresIn: string;
     expiresAt: number;
+    expiresIn: string;
     message: string;
   }> => {
     const { data } = await api.post('/api/auth/login', credentials);
     return data;
   },
 
-  register: async (credentials: RegisterCredentials): Promise<{ message: string }> => {
+  register: async (credentials: RegisterCredentials): Promise<{
+    message: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+    };
+  }> => {
     const { data } = await api.post('/api/auth/signup', credentials);
     return data;
   },
@@ -98,6 +105,11 @@ export const organizationApi = {
 
   getMyOrganizations: async () => {
     const response = await api.get('/api/organizations/my');
+    return response.data;
+  },
+
+  getOrganization: async (organizationId: string) => {
+    const response = await api.get(`/api/organizations/${organizationId}`);
     return response.data;
   },
 
@@ -153,6 +165,133 @@ export const projectApi = {
 
   toggleFavorite: async (projectId: string) => {
     const response = await api.patch(`/api/projects/${projectId}/favorite`);
+    return response.data;
+  },
+};
+
+export const taskApi = {
+  createTask: async (projectId: string, data: {
+    title: string;
+    description?: string;
+    status?: string;
+    priority?: string;
+    assigned_to?: string;
+    due_date?: string;
+    start_date?: string;
+    estimated_hours?: number;
+    tags?: string[];
+  }) => {
+    const response = await api.post(`/api/tasks/project/${projectId}`, data);
+    return response.data;
+  },
+
+  getProjectTasks: async (projectId: string) => {
+    const response = await api.get(`/api/tasks/project/${projectId}`);
+    return response.data;
+  },
+
+  getTask: async (taskId: string) => {
+    const response = await api.get(`/api/tasks/${taskId}`);
+    return response.data;
+  },
+
+  updateTask: async (taskId: string, updates: {
+    title?: string;
+    description?: string;
+    status?: string;
+    priority?: string;
+    assigned_to?: string;
+    due_date?: string;
+    start_date?: string;
+    estimated_hours?: number;
+    tags?: string[];
+  }) => {
+    const response = await api.patch(`/api/tasks/${taskId}`, updates);
+    return response.data;
+  },
+
+  deleteTask: async (taskId: string) => {
+    const response = await api.delete(`/api/tasks/${taskId}`);
+    return response.data;
+  },
+
+  updateTaskStatus: async (taskId: string, status: string) => {
+    const response = await api.patch(`/api/tasks/${taskId}/status`, { status });
+    return response.data;
+  },
+
+  updateTaskDate: async (taskId: string, date: string, type: 'due_date' | 'start_date') => {
+    const response = await api.patch(`/api/tasks/${taskId}/date`, { date, type });
+    return response.data;
+  },
+};
+
+export const inviteApi = {
+  createInvitation: async (data: {
+    email: string;
+    role: string;
+    scope: string;
+    organization_id: string;
+    project_id?: string;
+  }) => {
+    const response = await api.post('/api/invitations', data);
+    return response.data;
+  },
+
+  getInvitationByToken: async (token: string) => {
+    const response = await api.get(`/api/invitations/token/${token}`);
+    return response.data;
+  },
+
+  acceptInvitation: async (token: string) => {
+    const response = await api.post(`/api/invitations/${token}/accept`);
+    return response.data;
+  },
+
+  revokeInvitation: async (invitationId: string) => {
+    const response = await api.delete(`/api/invitations/${invitationId}`);
+    return response.data;
+  },
+
+  getOrganizationInvitations: async (organizationId: string) => {
+    const response = await api.get(`/api/invitations/organization/${organizationId}`);
+    return response.data;
+  },
+
+  getProjectInvitations: async (projectId: string) => {
+    const response = await api.get(`/api/invitations/project/${projectId}`);
+    return response.data;
+  },
+};
+
+export const memberApi = {
+  getProjectMembers: async (projectId: string) => {
+    const response = await api.get(`/api/members/project/${projectId}`);
+    return response.data;
+  },
+
+  getOrganizationMembers: async (organizationId: string) => {
+    const response = await api.get(`/api/members/organization/${organizationId}`);
+    return response.data;
+  },
+
+  updateProjectMemberRole: async (projectId: string, memberId: string, role: string) => {
+    const response = await api.patch(`/api/members/project/${projectId}/${memberId}/role`, { role });
+    return response.data;
+  },
+
+  updateOrganizationMemberRole: async (organizationId: string, memberId: string, role: string) => {
+    const response = await api.patch(`/api/members/organization/${organizationId}/${memberId}/role`, { role });
+    return response.data;
+  },
+
+  removeProjectMember: async (projectId: string, memberId: string) => {
+    const response = await api.delete(`/api/members/project/${projectId}/${memberId}`);
+    return response.data;
+  },
+
+  removeOrganizationMember: async (organizationId: string, memberId: string) => {
+    const response = await api.delete(`/api/members/organization/${organizationId}/${memberId}`);
     return response.data;
   },
 };

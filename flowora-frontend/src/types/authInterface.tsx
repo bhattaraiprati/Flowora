@@ -2,9 +2,11 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'user' | 'admin' | 'manager'; // adjust as per your backend
+  role: string;
+  profile_picture?: string;
   avatarInitials?: string;
 }
+
 
 export interface DecodedToken {
   id: string;

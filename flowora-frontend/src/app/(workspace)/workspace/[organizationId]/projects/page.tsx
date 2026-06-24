@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Plus, Search } from 'lucide-react';
 import ProjectCard from '@/components/UI/project/ProjectCard';
 import { CreateboardModal } from '@/components/modal/createBoardModal';
@@ -19,14 +19,17 @@ export default function ProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'IN_REVIEW' | 'COMPLETED' | 'PAUSED'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const isAuthChecked = useRef(false);
 
   // Token validation
   useEffect(() => {
-    if (!isTokenValid()) {
+    if (!isAuthChecked.current && !isTokenValid()) {
       clearAuth();
       router.replace('/login');
     }
-  }, [isTokenValid, clearAuth, router]);
+    isAuthChecked.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: projects = [], isLoading, isError, error } = useQuery<Project[]>({
     queryKey: ['projects', organizationId],
@@ -35,16 +38,20 @@ export default function ProjectsPage() {
     retry: false,
   });
 
+  const handleAuthError = useCallback(() => {
+    clearAuth();
+    router.replace('/login');
+  }, [clearAuth, router]);
+
   // Handle authentication errors
   useEffect(() => {
     if (isError && error) {
       const axiosError = error as any;
       if (axiosError?.response?.status === 401) {
-        clearAuth();
-        router.replace('/login');
+        handleAuthError();
       }
     }
-  }, [isError, error, clearAuth, router]);
+  }, [isError, error, handleAuthError]);
 
   const filteredProjects = projects
     .filter((project: Project) =>
