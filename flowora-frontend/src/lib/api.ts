@@ -295,3 +295,36 @@ export const memberApi = {
     return response.data;
   },
 };
+
+export const chatApi = {
+  getProjectMessages: async (projectId: string) => {
+    const response = await api.get(`/api/chat/project/${projectId}/messages`);
+    return response.data;
+  },
+
+  sendMessage: async (projectId: string, data: { message: string; reply_to?: string; attachments?: any[] }) => {
+    const response = await api.post(`/api/chat/project/${projectId}/messages`, data);
+    console.log("Here is the response ", response)
+    return response.data;
+  },
+
+  deleteMessage: async (messageId: string) => {
+    const response = await api.delete(`/api/chat/messages/${messageId}`);
+    return response.data;
+  },
+
+  editMessage: async (messageId: string, message: string) => {
+    const response = await api.patch(`/api/chat/messages/${messageId}`, { message });
+    return response.data;
+  },
+
+  addReaction: async (messageId: string, emoji: string) => {
+    const response = await api.post(`/api/chat/messages/${messageId}/reactions`, { emoji });
+    return response.data;
+  },
+
+  removeReaction: async (messageId: string, emoji: string) => {
+    const response = await api.delete(`/api/chat/messages/${messageId}/reactions/${emoji}`);
+    return response.data;
+  },
+};

@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ArrowLeft, Calendar, LayoutGrid, Plus, Users, UserPlus } from 'lucide-react';
+import { ArrowLeft, Calendar, LayoutGrid, Plus, Users, UserPlus, MessageSquare } from 'lucide-react';
 import { projectApi, taskApi, memberApi } from '@/lib/api';
 import { Project } from '@/types/ProjectInterface';
 import { Task } from '@/types/TaskInterface';
@@ -145,6 +145,13 @@ export default function ProjectDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push(`/workspace/${organizationId}/projects/${projectId}/chat`)}
+              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors font-medium"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat
+            </button>
             {viewMode === 'members' && canManageProject && (
               <button
                 onClick={() => setIsInviteModalOpen(true)}

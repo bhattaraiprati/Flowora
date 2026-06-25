@@ -65,11 +65,13 @@ export default function Sidebar() {
   const handleNavClick = (label: string) => {
     setActive(label);
 
-
     if (label === "Projects") {
       router.push(`/workspace/${organizationId}/projects`);
     } else if (label === "Home") {
       router.push(`/workspace/${organizationId}/dashboard`);
+    } else if (label === "Chat") {
+      // Chat is project-specific, so this will just highlight the nav
+      // Users access chat from within projects
     }
     // Add more routes as needed
   };

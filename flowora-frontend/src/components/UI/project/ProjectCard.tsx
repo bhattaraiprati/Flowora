@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Star, Users } from 'lucide-react';
+import { Calendar, Star, Users, MessageSquare } from 'lucide-react';
 import { Project } from '@/types/ProjectInterface';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -75,23 +75,39 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     toggleFavoriteMutation.mutate();
   };
 
+  const handleChatClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.location.href = `/workspace/${project.org_id}/projects/${project.id}/chat`;
+  };
+
   return (
     <Link href={`/workspace/${project.org_id}/projects/${project.id}`}>
       <div className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group cursor-pointer relative">
-        {/* Favorite Star */}
-        <button
-          onClick={handleFavoriteClick}
-          className="absolute top-4 right-4 p-1 rounded-lg hover:bg-slate-100 transition-colors z-10"
-          aria-label="Toggle favorite"
-        >
-          <Star
-            className={`w-4 h-4 transition-colors ${
-              project.is_favorite
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'text-slate-300 hover:text-yellow-400'
-            }`}
-          />
-        </button>
+        {/* Quick Actions */}
+        <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+          <button
+            onClick={handleChatClick}
+            className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
+            aria-label="Open chat"
+            title="Open project chat"
+          >
+            <MessageSquare className="w-4 h-4 text-blue-500" />
+          </button>
+          <button
+            onClick={handleFavoriteClick}
+            className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
+            aria-label="Toggle favorite"
+          >
+            <Star
+              className={`w-4 h-4 transition-colors ${
+                project.is_favorite
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'text-slate-300 hover:text-yellow-400'
+              }`}
+            />
+          </button>
+        </div>
 
         {/* Project Color Strip */}
         {project.color && (
