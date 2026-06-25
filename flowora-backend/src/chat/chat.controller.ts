@@ -43,6 +43,11 @@ export class ChatController {
     return this.chatService.createMessage(req.user.id, projectId, dto);
   }
 
+  @Get('rooms')
+  async getUserChatRooms(@Req() req: RequestWithUser) {
+      return this.chatService.getUserChatRooms(req.user.id);
+  }
+
   @Patch('messages/:messageId')
   async updateMessage(
     @Req() req: RequestWithUser,

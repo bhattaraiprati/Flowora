@@ -14,6 +14,7 @@ import { Organization } from './organization.model';
 import { User } from './user.model';
 import { ProjectMember } from './projectMember.model';
 import { ProjectStatus } from '../common/enums';
+import { Message } from './message.model';
 
 export enum ProjectVisibility {
   PUBLIC = 'PUBLIC',
@@ -131,4 +132,7 @@ export class Project extends Model<ProjectAttributes> implements ProjectAttribut
 
   @BelongsToMany(() => User, () => ProjectMember)
   declare users: User[];
+
+   @HasMany(() => Message)
+  declare messages: Message[];
 }

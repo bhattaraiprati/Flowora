@@ -200,6 +200,96 @@ export class ChatService {
 
     await message.destroy();
   }
+  // chat.service.ts — add this method
+async getUserChatRooms(userId: string) {
+    // Get all projects the user has access to (via project membership OR org membership)
+    const projectMemberships = await this.projectMemberModel.findAll({
+      where: { user_id: userId },
+      attributes: ['project_id'],
+    });
+
+    const orgMemberships = await this.orgMemberModel.findAll({
+      where: { user_id: userId, status: 'ACTIVE' },
+      attributes: ['org_id'],
+    });
+
+    const orgIds = orgMemberships.map((m) => m.org_id);
+
+    // Projects via direct membership
+    const directProjectIds = projectMemberships.map((m) => m.project_id);
+
+    // Projects via organization (only if you want org-wide project visibility —
+    // adjust this if project access should be membership-only)
+    const orgProjects = await this.projectModel.findAll({
+      where: { org_id: orgIds },
+      attributes: ['id'],
+    });
+    const orgProjectIds = orgProjects.map((p) => p.id);
+
+    const allProjectIds = [...new Set([...directProjectIds, ...orgProjectIds])];
+
+    if (allProjectIds.length === 0) {
+      return [];
+    }
+
+    // Fetch projects with their latest message + member count
+    const projects = await this.projectModel.findAll({
+      where: { id: allProjectIds },
+      attributes: ['id', 'title', 'color'],
+      include: [
+        {
+          model: this.messageModel,
+          as: 'messages',
+          limit: 1,
+          order: [['created_at', 'DESC']],
+          include: [
+            {
+              model: User,
+              attributes: ['id', 'name'],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Get member counts per project
+    const memberCounts = await this.projectMemberModel.findAll({
+      where: { project_id: allProjectIds },
+      attributes: ['project_id'],
+    });
+    const countMap = memberCounts.reduce((acc, m) => {
+      acc[m.project_id] = (acc[m.project_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return projects
+      .map((project) => {
+        const lastMessage = (project as any).messages?.[0] ?? null;
+        return {
+          id: project.id,
+          title: project.title,
+          color: project.color,
+          memberCount: countMap[project.id] || 0,
+          lastMessage: lastMessage
+            ? {
+                text: lastMessage.message,
+                senderName: lastMessage.user?.name,
+                createdAt: lastMessage.created_at,
+              }
+            : null,
+        };
+      })
+      .sort((a, b) => {
+        // Most recent activity first; projects with no messages go last
+        const aTime = a.lastMessage?.createdAt
+          ? new Date(a.lastMessage.createdAt).getTime()
+          : 0;
+        const bTime = b.lastMessage?.createdAt
+          ? new Date(b.lastMessage.createdAt).getTime()
+          : 0;
+        return bTime - aTime;
+      });
+}
 
   async addReaction(userId: string, messageId: string, emoji: string): Promise<MessageReaction[]> {
     const message = await this.messageModel.findByPk(messageId);
