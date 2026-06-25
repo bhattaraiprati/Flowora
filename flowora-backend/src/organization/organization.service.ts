@@ -82,36 +82,37 @@ export class OrganizationService {
   }
 
   async getUserOrganizations(userId: string) {
-    // Get organizations where user is an org member
-    const orgMemberships = await this.organizationMemberModel.findAll({
-      where: { user_id: userId, status: OrgMemberStatus.ACTIVE },
-      include: [
-        {
-          model: Organization,
-          as: 'organization',
-          where: { status: OrganizationStatus.ACTIVE },
-        },
-      ],
-    });
+    try {
+      // Get organizations where user is an org member
+      const orgMemberships = await this.organizationMemberModel.findAll({
+        where: { user_id: userId, status: OrgMemberStatus.ACTIVE },
+        include: [
+          {
+            model: Organization,
+            as: 'organization',
+            where: { status: OrganizationStatus.ACTIVE },
+          },
+        ],
+      });
 
-    // Get organizations where user is a project member (but not org member)
-    const projectMemberships = await this.projectMemberModel.findAll({
-      where: { user_id: userId },
-      include: [
-        {
-          model: Project,
-          as: 'project',
-          required: true,
-          include: [
-            {
-              model: Organization,
-              as: 'organization',
-              where: { status: OrganizationStatus.ACTIVE },
-            },
-          ],
-        },
-      ],
-    });
+      // Get organizations where user is a project member (but not org member)
+      const projectMemberships = await this.projectMemberModel.findAll({
+        where: { user_id: userId },
+        include: [
+          {
+            model: Project,
+            as: 'project',
+            required: true,
+            include: [
+              {
+                model: Organization,
+                as: 'organization',
+                where: { status: OrganizationStatus.ACTIVE },
+              },
+            ],
+          },
+        ],
+      });
 
     // Create a map to avoid duplicates and collect project info
     const organizationsMap = new Map();
@@ -155,6 +156,12 @@ export class OrganizationService {
       }
     });
 
-    return Array.from(organizationsMap.values());
+      return Array.from(organizationsMap.values());
+    } catch (error) {
+      if (error.name === 'SequelizeDatabaseError' && error.parent?.code === 'ECONNRESET') {
+        throw new InternalServerErrorException('Database connection lost. Please try again.');
+      }
+      throw error;
+    }
   }
 }

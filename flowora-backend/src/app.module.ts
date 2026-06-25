@@ -12,6 +12,7 @@ import { ProjectModule } from './project/project.module';
 import { TaskModule } from './task/task.module';
 import { InvitationModule } from './invitation/invitation.module';
 import { MemberModule } from './member/member.module';
+import { ChatModule } from './chat/chat.module';
 import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
 import jwtConfig from './config/jwt.config';
@@ -35,6 +36,7 @@ import mailConfig from './config/mail.config';
     TaskModule,
     InvitationModule,
     MemberModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

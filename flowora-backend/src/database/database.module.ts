@@ -8,6 +8,8 @@ import { Project } from '../models/project.model';
 import { ProjectMember } from '../models/projectMember.model';
 import { Task } from '../models/task.model';
 import { Invitation } from '../models/invitation.model';
+import { Message } from '../models/message.model';
+import { MessageReaction } from '../models/messageReaction.model';
 
 @Module({
   imports: [
@@ -22,10 +24,29 @@ import { Invitation } from '../models/invitation.model';
             require: true,
             rejectUnauthorized: false,
           },
+          keepAlive: true,
+          keepAliveInitialDelayMillis: 10000,
         },
-        models: [User, Organization, OrganizationMember, Project, ProjectMember, Task, Invitation],
+        pool: {
+          max: 10,
+          min: 2,
+          acquire: 30000,
+          idle: 10000,
+          evict: 1000,
+        },
+        retry: {
+          max: 3,
+          match: [
+            'ECONNRESET',
+            'ECONNREFUSED',
+            'ETIMEDOUT',
+            'EHOSTUNREACH',
+            'EAI_AGAIN',
+          ],
+        },
+        models: [User, Organization, OrganizationMember, Project, ProjectMember, Task, Invitation, Message, MessageReaction],
         autoLoadModels: true,
-        synchronize: true, // Will auto-create tables based on models
+        synchronize: true,
         logging: false,
       }),
     }),
