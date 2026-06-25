@@ -17,6 +17,19 @@ export interface ChatMessage {
   is_edited?: boolean;
 }
 
+export interface ChatRoomSummary {
+  id: string;
+  title: string;
+  icon?: string;
+  color?: string;
+  memberCount: number;
+  lastMessage: {
+    text: string;
+    senderName: string;
+    createdAt: string;
+  } | null;
+}
+
 export interface ChatAttachment {
   id: string;
   type: 'image' | 'file' | 'video';

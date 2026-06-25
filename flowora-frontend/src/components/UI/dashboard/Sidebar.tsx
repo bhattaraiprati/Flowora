@@ -57,7 +57,9 @@ export default function Sidebar() {
   useEffect(() => {
     if (pathname?.includes("/projects")) {
       setActive("Projects");
-    } else if (pathname?.includes("/dashboard") || pathname?.endsWith("/")) {
+    } else if (pathname?.includes("/chats")) {        // ✅ add this
+      setActive("Chat");
+    }else if (pathname?.includes("/dashboard") || pathname?.endsWith("/")) {
       setActive("Home");
     }
   }, [pathname]);
@@ -72,6 +74,7 @@ export default function Sidebar() {
     } else if (label === "Chat") {
       // Chat is project-specific, so this will just highlight the nav
       // Users access chat from within projects
+      router.push(`/workspace/${organizationId}/chats`);
     }
     // Add more routes as needed
   };
@@ -102,28 +105,6 @@ export default function Sidebar() {
         ))}
       </div>
 
-      {/* <div className="mt-4 px-3">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-3 mb-2">Workspaces</p>
-        {workspaces.map((ws) => (
-          <button
-            key={ws.name}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all w-full text-left"
-          >
-            <span className={`w-6 h-6 rounded-md ${ws.color} text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0`}>
-              {ws.initials}
-            </span>
-            {ws.name}
-          </button>
-        ))}
-        <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-brand hover:bg-brand-light/50 transition-all w-full text-left mt-0.5">
-          <span className="w-6 h-6 rounded-md border border-dashed border-slate-300 flex items-center justify-center flex-shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </span>
-          New workspace
-        </button>
-      </div> */}
 
       <div className="mt-auto p-3 border-t border-slate-100 mx-3">
         <button className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all w-full text-left">

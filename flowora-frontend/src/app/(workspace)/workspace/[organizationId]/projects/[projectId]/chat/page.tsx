@@ -224,7 +224,7 @@ export default function ProjectChatPage() {
   }, [messages]);
 
   const handleSendMessage = () => {
-    console.log('📤 Sending message via socket. Connected:', isSocketConnected);
+    console.log('Sending message via socket. Connected:', isSocketConnected);
     console.log("here is the message", message)
       sendMessageMutation.mutate({ message: message });
   };

@@ -12,11 +12,11 @@ export default function WorkspaceLayout({
 }) {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+       <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
         <DashboardHeader />
-        <div className="flex flex-1 overflow-hidden">
+       <div className="flex flex-1 overflow-hidden min-h-0">
           <Sidebar />
-          <div className="flex-1 overflow-hidden">
+           <div className="flex-1 overflow-hidden min-h-0">
             {children}
           </div>
         </div>

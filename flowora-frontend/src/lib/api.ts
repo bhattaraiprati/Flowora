@@ -1,4 +1,5 @@
 import { AuthResponse, LoginCredentials, RegisterCredentials } from '@/types/authInterface';
+import { ChatRoomSummary } from '@/types/ChatInterface';
 import { RegisterOrganization } from '@/types/OrganizationInterface';
 import axios from 'axios';
 
@@ -305,6 +306,11 @@ export const chatApi = {
   sendMessage: async (projectId: string, data: { message: string; reply_to?: string; attachments?: any[] }) => {
     const response = await api.post(`/api/chat/project/${projectId}/messages`, data);
     console.log("Here is the response ", response)
+    return response.data;
+  },
+
+   getUserChatRooms: async (): Promise<ChatRoomSummary[]> => {
+    const response = await api.get('/api/chat/rooms');
     return response.data;
   },
 
