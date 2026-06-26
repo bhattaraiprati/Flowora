@@ -1,6 +1,8 @@
 import { AuthResponse, LoginCredentials, RegisterCredentials } from '@/types/authInterface';
 import { ChatRoomSummary } from '@/types/ChatInterface';
+import { PaginatedNotifications } from '@/types/NotificationInterface';
 import { RegisterOrganization } from '@/types/OrganizationInterface';
+import { TaskWithProject } from '@/types/TaskInterface';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'; 
@@ -195,6 +197,16 @@ export const taskApi = {
     const response = await api.get(`/api/tasks/${taskId}`);
     return response.data;
   },
+   getMyTasks: async (
+    organizationId: string,
+    filters?: { status?: string; priority?: string; due_date_from?: string; due_date_to?: string }
+  ): Promise<TaskWithProject[]> => {
+    const params = new URLSearchParams(filters as Record<string, string>).toString();
+    const response = await api.get(
+      `/api/tasks/my/organization/${organizationId}${params ? `?${params}` : ''}`
+    );
+    return response.data;
+  },
 
   updateTask: async (taskId: string, updates: {
     title?: string;
@@ -331,6 +343,34 @@ export const chatApi = {
 
   removeReaction: async (messageId: string, emoji: string) => {
     const response = await api.delete(`/api/chat/messages/${messageId}/reactions/${emoji}`);
+    return response.data;
+  },
+};
+
+// lib/api.ts — add notificationApi
+export const notificationApi = {
+  getNotifications: async (page = 1, limit = 20): Promise<PaginatedNotifications> => {
+    const response = await api.get(`/api/notifications?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  getUnreadCount: async (): Promise<{ count: number }> => {
+    const response = await api.get('/api/notifications/unread-count');
+    return response.data;
+  },
+
+  markAsRead: async (id: string) => {
+    const response = await api.post(`/api/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllAsRead: async () => {
+    const response = await api.post('/api/notifications/mark-all-read');
+    return response.data;
+  },
+
+  deleteNotification: async (id: string) => {
+    const response = await api.delete(`/api/notifications/${id}`);
     return response.data;
   },
 };

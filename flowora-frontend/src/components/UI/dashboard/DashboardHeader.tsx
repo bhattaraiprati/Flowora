@@ -1,18 +1,57 @@
+// components/UI/dashboard/DashboardHeader.tsx
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Logo from "../logo";
-import { Settings, User } from "lucide-react";
+import { Settings, User, Trash2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { organizationApi } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { organizationApi, notificationApi } from "@/lib/api";
+import { Notification } from "@/types/NotificationInterface";
+import { notificationSocketService } from "@/lib/notificationSocket";
 
-const notifications = [
-  { id: 1, text: "Anika commented on Sprint #4", time: "2m ago", read: false },
-  { id: 2, text: "New member joined Design Team", time: "1h ago", read: false },
-  { id: 3, text: "Task 'API Integration' is overdue", time: "3h ago", read: true },
-  { id: 4, text: "Rajeev moved a card to Done", time: "Yesterday", read: true },
-];
+function formatRelativeTime(dateStr: string): string {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) return 'now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  if (diffInSeconds < 172800) return 'Yesterday';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ✅ Maps reference_type + reference_id to a route.
+// Adjust the TASK/CHAT paths if your actual routes differ — these match
+// the project/task and project-chat routes built earlier in this project.
+function getNotificationRoute(
+  notification: Notification,
+  organizationId: string,
+  projectIdFromMetadata?: string
+): string | null {
+  const { reference_type, reference_id, metadata } = notification;
+
+  if (!reference_type || !reference_id) return null;
+
+  switch (reference_type) {
+    case 'TASK': {
+      // Tasks live inside a project — metadata should carry project_id
+      // (set this when creating the notification on the backend)
+      const projectId = metadata?.project_id || projectIdFromMetadata;
+      if (!projectId) return null;
+      return `/workspace/${organizationId}/projects/${projectId}`;
+    }
+    case 'PROJECT':
+      return `/workspace/${organizationId}/projects/${reference_id}`;
+    case 'CHAT':
+      return `/workspace/${organizationId}/projects/${reference_id}/chat`;
+    case 'INVITATION':
+      return `/invitations/${reference_id}`;
+    default:
+      return null;
+  }
+}
 
 export default function DashboardHeader() {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -21,17 +60,65 @@ export default function DashboardHeader() {
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   const params = useParams();
   const router = useRouter();
   const activeOrgId = params.organizationId as string;
+  const queryClient = useQueryClient();
 
   const { data: organizations } = useQuery({
     queryKey: ['myOrganizations'],
     queryFn: organizationApi.getMyOrganizations,
   });
 
+  // ── Initial load via REST ───────────────────────────────────────────────────
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => notificationApi.getNotifications(1, 20),
+    refetchOnWindowFocus: false, // socket handles live updates
+  });
+
+  const { data: unreadData } = useQuery({
+    queryKey: ['notifications-unread-count'],
+    queryFn: () => notificationApi.getUnreadCount(),
+    refetchOnWindowFocus: false,
+  });
+
+  const notifications = notificationsData?.data ?? [];
+  const unreadCount = unreadData?.count ?? 0;
+
+  // ── WebSocket: live updates ──────────────────────────────────────────────────
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const socket = notificationSocketService.connect(token);
+
+    const handleNewNotification = (notification: Notification) => {
+      // Prepend new notification to the cached list
+      queryClient.setQueryData(['notifications'], (old: any) => {
+        if (!old) return old;
+        return { ...old, data: [notification, ...old.data] };
+      });
+      // Bump unread count locally — socket may also emit unread_count separately
+      queryClient.setQueryData(['notifications-unread-count'], (old: any) => ({
+        count: (old?.count ?? 0) + 1,
+      }));
+    };
+
+    const handleUnreadCount = ({ count }: { count: number }) => {
+      queryClient.setQueryData(['notifications-unread-count'], { count });
+    };
+
+    socket.on('notification:new', handleNewNotification);
+    socket.on('notification:unread_count', handleUnreadCount);
+
+    return () => {
+      socket.off('notification:new', handleNewNotification);
+      socket.off('notification:unread_count', handleUnreadCount);
+    };
+  }, [queryClient]);
+
+  // ── Click-outside handling (unchanged) ───────────────────────────────────────
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifications(false);
@@ -41,15 +128,88 @@ export default function DashboardHeader() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ── Actions ───────────────────────────────────────────────────────────────────
+  const handleMarkAllRead = useCallback(async () => {
+    // Optimistic update
+    queryClient.setQueryData(['notifications'], (old: any) => {
+      if (!old) return old;
+      return { ...old, data: old.data.map((n: Notification) => ({ ...n, is_read: true })) };
+    });
+    queryClient.setQueryData(['notifications-unread-count'], { count: 0 });
+
+    // Prefer socket if connected (instant + syncs other open tabs via server broadcast)
+    const socket = notificationSocketService.getSocket();
+    if (socket?.connected) {
+      notificationSocketService.markAllAsRead();
+    } else {
+      await notificationApi.markAllAsRead();
+    }
+  }, [queryClient]);
+
+  const handleNotificationClick = useCallback(
+    (notification: Notification) => {
+      // Mark as read (optimistic)
+      if (!notification.is_read) {
+        queryClient.setQueryData(['notifications'], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: old.data.map((n: Notification) =>
+              n.id === notification.id ? { ...n, is_read: true } : n
+            ),
+          };
+        });
+        queryClient.setQueryData(['notifications-unread-count'], (old: any) => ({
+          count: Math.max(0, (old?.count ?? 1) - 1),
+        }));
+
+        const socket = notificationSocketService.getSocket();
+        if (socket?.connected) {
+          notificationSocketService.markAsRead(notification.id);
+        } else {
+          notificationApi.markAsRead(notification.id);
+        }
+      }
+
+      setShowNotifications(false);
+
+      // Navigate based on reference_type + reference_id
+      const route = getNotificationRoute(notification, activeOrgId);
+      if (route) {
+        router.push(route);
+      }
+    },
+    [queryClient, activeOrgId, router]
+  );
+
+  const handleDeleteNotification = useCallback(
+    (e: React.MouseEvent, notificationId: string) => {
+      e.stopPropagation(); // don't trigger handleNotificationClick
+
+      queryClient.setQueryData(['notifications'], (old: any) => {
+        if (!old) return old;
+        return { ...old, data: old.data.filter((n: Notification) => n.id !== notificationId) };
+      });
+
+      const socket = notificationSocketService.getSocket();
+      if (socket?.connected) {
+        notificationSocketService.deleteNotification(notificationId);
+      } else {
+        notificationApi.deleteNotification(notificationId);
+      }
+    },
+    [queryClient]
+  );
+
   return (
     <header className="h-14 bg-white border-b border-slate-100 flex items-center px-4 gap-4 sticky top-0 z-10">
       <div className="flex items-center gap-2 min-w-[180px]">
         <Logo/>
       </div>
 
-      {/* Organization Switcher */}
+      {/* Organization Switcher — unchanged */}
       <div className="relative">
-        <select 
+        <select
           className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 py-1.5 pl-3 pr-8 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent cursor-pointer"
           value={activeOrgId || ''}
           onChange={(e) => {
@@ -61,9 +221,7 @@ export default function DashboardHeader() {
           }}
         >
           {organizations?.map((org: any) => (
-            <option key={org.id} value={org.id}>
-              {org.name}
-            </option>
+            <option key={org.id} value={org.id}>{org.name}</option>
           ))}
           <option disabled>──────────</option>
           <option value="create_new">+ Create New Organization</option>
@@ -73,7 +231,7 @@ export default function DashboardHeader() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search — unchanged */}
       <div className={`flex-1 max-w-md mx-auto transition-all duration-200 ${searchFocused ? "max-w-lg" : ""}`}>
         <div className={`relative flex items-center bg-slate-50 rounded-lg border transition-all duration-200 ${searchFocused ? "border-brand shadow-[0_0_0_3px_rgba(16,122,196,0.1)]" : "border-slate-200"}`}>
           <svg className="absolute left-3 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,25 +264,53 @@ export default function DashboardHeader() {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-11 w-80 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">
+            <div className="absolute right-0 top-11 w-80 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50 max-h-96 overflow-y-auto">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50 sticky top-0 bg-white">
                 <span className="text-sm font-semibold text-slate-700">Notifications</span>
-                <button className="text-xs text-brand hover:text-brand-dark font-medium">Mark all read</button>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-xs text-brand hover:text-brand-dark font-medium"
+                  >
+                    Mark all read
+                  </button>
+                )}
               </div>
+
+              {notifications.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-slate-400">
+                  No notifications yet
+                </div>
+              )}
+
               {notifications.map((n) => (
-                <div key={n.id} className={`flex gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors ${!n.read ? "bg-brand-light/40" : ""}`}>
-                  <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.read ? "bg-brand" : "bg-transparent"}`} />
-                  <div>
-                    <p className="text-sm text-slate-700 leading-snug">{n.text}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{n.time}</p>
+                <div
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
+                  className={`group flex gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors ${
+                    !n.is_read ? "bg-brand-light/40" : ""
+                  }`}
+                >
+                  <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${!n.is_read ? "bg-brand" : "bg-transparent"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 leading-snug truncate">{n.title}</p>
+                    <p className="text-xs text-slate-500 leading-snug mt-0.5 line-clamp-2">{n.message}</p>
+                    <p className="text-xs text-slate-400 mt-1">{formatRelativeTime(n.created_at)}</p>
                   </div>
+                  <button
+                    onClick={(e) => handleDeleteNotification(e, n.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded-md transition-all flex-shrink-0 self-start"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* User Menu */}
+        {/* User Menu — unchanged */}
         <div className="relative" ref={userRef}>
           <button
             onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}

@@ -50,3 +50,28 @@ export interface UpdateTaskData {
   estimated_hours?: number;
   tags?: string[];
 }
+
+export interface TaskWithProject {
+  id: string;
+  title: string;
+  description: string | null;
+  status: 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  due_date: string | null;
+  start_date: string | null;
+  estimated_hours: number | null;
+  tags: string[];
+  created_at: string;
+  project: {
+    id: string;
+    title: string;
+    color: string;
+    org_id: string;
+  };
+  assignee: {
+    id: string;
+    name: string;
+    email: string;
+    profile_picture?: string;
+  };
+}

@@ -28,15 +28,6 @@ const navItems = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
       </svg>
     ),
-    badge: 5,
-  },
-  {
-    label: "Team",
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
   },
   {
     label: "Chat",
@@ -55,9 +46,11 @@ export default function Sidebar() {
 
   // Auto highlight based on current route
   useEffect(() => {
-    if (pathname?.includes("/projects")) {
+    if (pathname?.includes("/projects/chat")) {
       setActive("Projects");
-    } else if (pathname?.includes("/chats")) {        // ✅ add this
+    } else if (pathname?.includes("/tasks")) {     // ✅ add this
+      setActive("My Tasks");
+    } else if (pathname?.includes("/chats")) {
       setActive("Chat");
     }else if (pathname?.includes("/dashboard") || pathname?.endsWith("/")) {
       setActive("Home");
@@ -71,12 +64,11 @@ export default function Sidebar() {
       router.push(`/workspace/${organizationId}/projects`);
     } else if (label === "Home") {
       router.push(`/workspace/${organizationId}/dashboard`);
-    } else if (label === "Chat") {
-      // Chat is project-specific, so this will just highlight the nav
-      // Users access chat from within projects
+    } else if (label === "My Tasks") {         
+      router.push(`/workspace/${organizationId}/tasks`);
+    }else if (label === "Chat") {
       router.push(`/workspace/${organizationId}/chats`);
     }
-    // Add more routes as needed
   };
 
   return (
@@ -96,11 +88,11 @@ export default function Sidebar() {
               {item.icon}
             </span>
             {item.label}
-            {item.badge && (
+            {/* {item?.badge && (
               <span className="ml-auto bg-brand text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                 {item.badge}
               </span>
-            )}
+            )} */}
           </button>
         ))}
       </div>
