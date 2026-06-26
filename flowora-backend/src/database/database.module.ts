@@ -10,6 +10,7 @@ import { Task } from '../models/task.model';
 import { Invitation } from '../models/invitation.model';
 import { Message } from '../models/message.model';
 import { MessageReaction } from '../models/messageReaction.model';
+import { Notification } from '../models/notification.model';
 
 @Module({
   imports: [
@@ -44,7 +45,7 @@ import { MessageReaction } from '../models/messageReaction.model';
             'EAI_AGAIN',
           ],
         },
-        models: [User, Organization, OrganizationMember, Project, ProjectMember, Task, Invitation, Message, MessageReaction],
+        models: [User, Organization, OrganizationMember, Project, ProjectMember, Task, Invitation, Message, MessageReaction, Notification],
         autoLoadModels: true,
         synchronize: true,
         logging: false,

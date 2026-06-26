@@ -83,6 +83,7 @@ export enum TaskActivityAction {
 export enum NotificationType {
   TASK_ASSIGNED = 'TASK_ASSIGNED',
   TASK_REASSIGNED = 'TASK_REASSIGNED',
+  TASK_STATUS_CHANGED = 'TASK_STATUS_CHANGED',
   TASK_DUE_SOON = 'TASK_DUE_SOON',
   TASK_OVERDUE = 'TASK_OVERDUE',
   TASK_COMPLETED = 'TASK_COMPLETED',
@@ -91,7 +92,6 @@ export enum NotificationType {
   INVITED = 'INVITED',
   PROJECT_CREATED = 'PROJECT_CREATED',
   USER_ADDED_TO_PROJECT = 'USER_ADDED_TO_PROJECT',
-  // Add more as needed from your email events
 }
 
 export enum ReferenceType {

@@ -16,6 +16,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { UpdateTaskDateDto, DateType } from './dto/update-task-date.dto';
 import { Op } from 'sequelize';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class TaskService {
@@ -24,6 +25,8 @@ export class TaskService {
     @InjectModel(Project) private readonly projectModel: typeof Project,
     @InjectModel(ProjectMember) private readonly projectMemberModel: typeof ProjectMember,
     @InjectModel(OrganizationMember) private readonly orgMemberModel: typeof OrganizationMember,
+    @InjectModel(User) private readonly userModel: typeof User,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async verifyProjectAccess(
@@ -115,11 +118,29 @@ export class TaskService {
           as: 'assignee',
           attributes: ['id', 'name', 'email', 'profile_picture'],
         },
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'email', 'profile_picture'],
+        },
       ],
     });
 
     if (!createdTask) {
       throw new NotFoundException('Task creation failed');
+    }
+
+    if (createdTask.assigned_to && createdTask.assigned_to !== userId) {
+      const assignedUser = await this.userModel.findByPk(createdTask.assigned_to);
+      const assignedBy = await this.userModel.findByPk(userId);
+
+      if (assignedUser && assignedBy) {
+        await this.notificationsService.notifyTaskAssigned(
+          createdTask,
+          assignedUser,
+          assignedBy,
+        );
+      }
     }
 
     return createdTask;
@@ -189,6 +210,101 @@ export class TaskService {
     return task;
   }
 
+async getMyTasks(userId: string, organizationId: string, filters?: any): Promise<Task[]> {
+    // Find every project in this org the user has access to 
+    // either via direct project membership, or via org membership
+    // (mirrors the access pattern already used in ProjectService.getOrganizationProjects)
+
+    const orgMembership = await this.orgMemberModel.findOne({
+      where: { user_id: userId, org_id: organizationId },
+    });
+
+    const projectMemberships = await this.projectMemberModel.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: this.projectModel,
+          as: 'project',
+          where: { org_id: organizationId },
+          attributes: ['id'],
+        },
+      ],
+      attributes: ['project_id'],
+    });
+
+    const memberProjectIds = projectMemberships.map((pm) => pm.project_id);
+
+    if (!orgMembership && memberProjectIds.length === 0) {
+      throw new ForbiddenException('You do not have access to this organization');
+    }
+
+    // Build the project scope: org admins/owners/managers see tasks assigned
+    // to them across ALL org projects; regular members/viewers only see tasks
+    // in projects they're directly a member of
+    let projectScopeIds: string[];
+
+    if (
+      orgMembership &&
+      [OrgMemberRole.ADMIN, OrgMemberRole.OWNER, OrgMemberRole.MANAGER].includes(orgMembership.role)
+    ) {
+      const orgProjects = await this.projectModel.findAll({
+        where: { org_id: organizationId },
+        attributes: ['id'],
+      });
+      projectScopeIds = orgProjects.map((p) => p.id);
+    } else {
+      projectScopeIds = memberProjectIds;
+    }
+
+    if (projectScopeIds.length === 0) {
+      return [];
+    }
+
+    // Core filter: tasks assigned to THIS user, within projects they can see
+    const where: any = {
+      assigned_to: userId,
+      project_id: { [Op.in]: projectScopeIds },
+    };
+
+    if (filters?.status) {
+      where.status = { [Op.in]: filters.status.split(',') };
+    }
+
+    if (filters?.priority) {
+      where.priority = { [Op.in]: filters.priority.split(',') };
+    }
+
+    if (filters?.due_date_from || filters?.due_date_to) {
+      where.due_date = {};
+      if (filters.due_date_from) {
+        where.due_date[Op.gte] = new Date(filters.due_date_from);
+      }
+      if (filters.due_date_to) {
+        where.due_date[Op.lte] = new Date(filters.due_date_to);
+      }
+    }
+
+    return await this.taskModel.findAll({
+      where,
+      include: [
+        {
+          model: this.projectModel,
+          as: 'project',
+          attributes: ['id', 'title', 'color', 'org_id'],
+        },
+        {
+          model: User,
+          as: 'assignee',
+          attributes: ['id', 'name', 'email', 'profile_picture'],
+        },
+      ],
+      order: [
+        ['due_date', 'ASC'],
+        ['created_at', 'DESC'],
+      ],
+    });
+}
+
   async updateTask(userId: string, taskId: string, dto: UpdateTaskDto): Promise<Task> {
     const task = await this.taskModel.findByPk(taskId);
     if (!task) {
@@ -213,6 +329,9 @@ export class TaskService {
         throw new BadRequestException('Assigned user is not a member of this project');
       }
     }
+
+    const oldStatus = task.status;
+    const oldAssignedTo = task.assigned_to;
 
     await task.update({
       title: dto.title ?? task.title,
@@ -240,6 +359,53 @@ export class TaskService {
       throw new NotFoundException('Task not found after update');
     }
 
+    const currentUser = await this.userModel.findByPk(userId);
+
+    if (dto.assigned_to !== undefined && oldAssignedTo !== dto.assigned_to && currentUser) {
+      if (oldAssignedTo && dto.assigned_to) {
+        const newAssignee = await this.userModel.findByPk(dto.assigned_to);
+        const previousAssignee = await this.userModel.findByPk(oldAssignedTo);
+
+        if (newAssignee && previousAssignee) {
+          await this.notificationsService.notifyTaskReassigned(
+            updatedTask,
+            newAssignee,
+            previousAssignee,
+            currentUser,
+          );
+        }
+      } else if (dto.assigned_to) {
+        const assignedUser = await this.userModel.findByPk(dto.assigned_to);
+        if (assignedUser && assignedUser.id !== userId) {
+          await this.notificationsService.notifyTaskAssigned(
+            updatedTask,
+            assignedUser,
+            currentUser,
+          );
+        }
+      }
+    }
+
+    if (dto.status && oldStatus !== dto.status && currentUser) {
+      const projectMembers = await this.notificationsService.getProjectMembers(task.project_id);
+
+      if (dto.status === TaskStatus.DONE) {
+        await this.notificationsService.notifyTaskCompleted(
+          updatedTask,
+          currentUser,
+          projectMembers,
+        );
+      } else {
+        await this.notificationsService.notifyTaskStatusChanged(
+          updatedTask,
+          oldStatus,
+          dto.status,
+          currentUser,
+          projectMembers,
+        );
+      }
+    }
+
     return updatedTask;
   }
 
@@ -250,6 +416,8 @@ export class TaskService {
     }
 
     await this.verifyProjectAccess(userId, task.project_id, ProjectMemberRole.MEMBER);
+
+    const oldStatus = task.status;
 
     await task.update({ status: dto.status });
 
@@ -265,6 +433,29 @@ export class TaskService {
 
     if (!updatedTask) {
       throw new NotFoundException('Task not found after update');
+    }
+
+    if (oldStatus !== dto.status) {
+      const currentUser = await this.userModel.findByPk(userId);
+      const projectMembers = await this.notificationsService.getProjectMembers(task.project_id);
+
+      if (currentUser) {
+        if (dto.status === TaskStatus.DONE) {
+          await this.notificationsService.notifyTaskCompleted(
+            updatedTask,
+            currentUser,
+            projectMembers,
+          );
+        } else {
+          await this.notificationsService.notifyTaskStatusChanged(
+            updatedTask,
+            oldStatus,
+            dto.status,
+            currentUser,
+            projectMembers,
+          );
+        }
+      }
     }
 
     return updatedTask;

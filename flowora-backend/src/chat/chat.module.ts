@@ -10,6 +10,8 @@ import { MessageReaction } from '../models/messageReaction.model';
 import { Project } from '../models/project.model';
 import { ProjectMember } from '../models/projectMember.model';
 import { OrganizationMember } from '../models/organizationMember.model';
+import { User } from '../models/user.model';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -19,13 +21,15 @@ import { OrganizationMember } from '../models/organizationMember.model';
       Project,
       ProjectMember,
       OrganizationMember,
+      User,
     ]),
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('jwt.secret') || 'default-secret-change-me',
-        signOptions: { expiresIn: '7d' },
+        signOptions: { expiresIn: '5h' },
       }),
     }),
   ],

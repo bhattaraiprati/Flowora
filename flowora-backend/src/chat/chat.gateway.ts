@@ -12,6 +12,10 @@ import { UseGuards } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { NotificationsService } from '../notifications/notifications.service';
+import { InjectModel } from '@nestjs/sequelize';
+import { User } from '../models/user.model';
+import { Project } from '../models/project.model';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -34,6 +38,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatService: ChatService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
+    @InjectModel(User) private readonly userModel: typeof User,
+    @InjectModel(Project) private readonly projectModel: typeof Project,
   ) {}
 
   // chat.gateway.ts
@@ -43,7 +50,7 @@ async handleConnection(client: AuthenticatedSocket) {
       const token = client.handshake.auth.token || client.handshake.headers.authorization?.split(' ')[1];
 
       if (!token) {
-        console.warn('⚠️ No token provided — disconnecting');
+        console.warn('No token provided — disconnecting');
         client.disconnect();
         return;
       }
@@ -52,20 +59,18 @@ async handleConnection(client: AuthenticatedSocket) {
         secret: this.configService.get<string>('jwt.secret'),
       });
 
-      // ✅ FIX: 'sub' is the standard JWT claim for user ID — matches what
-      // JwtStrategy maps to `id` for REST requests. Token never had `payload.id`.
       client.userId = payload.sub;
       client.userName = payload.name;
 
       if (!client.userId) {
-        console.error('❌ JWT payload missing "sub" claim:', payload);
+        console.error('JWT payload missing "sub" claim:', payload);
         client.disconnect();
         return;
       }
 
-      console.log(`✅ Client connected: ${client.userId} (${client.userName})`);
+      console.log(`Client connected: ${client.userId} (${client.userName})`);
     } catch (error) {
-      console.error('❌ WebSocket authentication failed:', error.message);
+      console.error('WebSocket authentication failed:', error.message);
       client.disconnect();
     }
 }
@@ -86,7 +91,7 @@ async handleConnection(client: AuthenticatedSocket) {
 
       await this.chatService.verifyProjectAccess(client.userId, data.projectId);
       client.join(`project:${data.projectId}`);
-      console.log(`📌 User ${client.userId} joined project:${data.projectId}`);
+      console.log(`User ${client.userId} joined project:${data.projectId}`);
 
       return { success: true, message: 'Joined project room' };
     } catch (error) {
@@ -100,7 +105,7 @@ async handleConnection(client: AuthenticatedSocket) {
     @MessageBody() data: { projectId: string },
   ) {
     client.leave(`project:${data.projectId}`);
-    console.log(`📤 User ${client.userId} left project:${data.projectId}`);
+    console.log(`User ${client.userId} left project:${data.projectId}`);
     return { success: true };
   }
 
@@ -125,6 +130,20 @@ async handleConnection(client: AuthenticatedSocket) {
       );
 
       this.server.to(`project:${data.projectId}`).emit('message:new', newMessage);
+
+      const sender = await this.userModel.findByPk(client.userId);
+      const project = await this.projectModel.findByPk(data.projectId);
+      const projectMembers = await this.notificationsService.getProjectMembers(data.projectId);
+
+      if (sender && project) {
+        await this.notificationsService.notifyNewChatMessage(
+          data.projectId,
+          project.title,
+          sender,
+          data.message,
+          projectMembers,
+        );
+      }
 
       return { success: true, message: newMessage };
     } catch (error) {

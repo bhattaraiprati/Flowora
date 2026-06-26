@@ -51,6 +51,15 @@ export class TaskController {
     return this.taskService.getTaskById(req.user.id, taskId);
   }
 
+  @Get('my/organization/:organizationId')
+  async getMyTasks(
+      @Req() req: RequestWithUser,
+      @Param('organizationId') organizationId: string,
+      @Query() filters: any,
+  ) {
+      return this.taskService.getMyTasks(req.user.id, organizationId, filters);
+  }
+
   @Patch(':taskId')
   async updateTask(
     @Req() req: RequestWithUser,
