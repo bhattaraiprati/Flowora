@@ -69,44 +69,57 @@ export class DashboardService {
   }
 
   private async getStats(organizationId: string, scopeProjectIds: string[], userId: string) {
-    if (scopeProjectIds.length === 0) {
-      return { activeProjects: 0, tasksDueToday: 0, teamMembers: 0, completedThisWeek: 0 };
-    }
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
-    const [activeProjects, tasksDueToday, teamMembers, completedThisWeek] = await Promise.all([
-      this.projectModel.count({
-        where: { id: scopeProjectIds, status: 'ACTIVE' },
-      }),
-      this.taskModel.count({
-        where: {
-          project_id: scopeProjectIds,
-          assigned_to: userId,
-          due_date: { [Op.between]: [todayStart, todayEnd] },
-          status: { [Op.ne]: TaskStatus.DONE },
-        },
-      }),
-      this.orgMemberModel.count({
-        where: { org_id: organizationId, status: 'ACTIVE' },
-      }),
-      this.taskModel.count({
-        where: {
-          project_id: scopeProjectIds,
-          status: TaskStatus.DONE,
-          updated_at: { [Op.gte]: weekAgo },
-        },
-      }),
-    ]);
-
-    return { activeProjects, tasksDueToday, teamMembers, completedThisWeek };
+  if (scopeProjectIds.length === 0) {
+    return { activeProjects: 0, tasksDueToday: 0, teamMembers: 0, completedThisWeek: 0 };
   }
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const [activeProjects, tasksDueToday, teamMembers, completedThisWeek] = await Promise.all([
+    this.projectModel.count({
+      where: { 
+        id: { [Op.in]: scopeProjectIds }, 
+        status: 'ACTIVE' 
+      },
+    }),
+
+    this.taskModel.count({
+      where: {
+        project_id: { [Op.in]: scopeProjectIds },
+        assigned_to: userId,
+        due_date: {
+          [Op.gte]: todayStart,   // due date is today or later
+          [Op.lte]: todayEnd,     // due date is today or earlier
+        },
+        status: { [Op.ne]: TaskStatus.DONE },
+      },
+    }),
+
+    this.orgMemberModel.count({
+      where: { 
+        org_id: organizationId, 
+        status: 'ACTIVE' 
+      },
+    }),
+
+    this.taskModel.count({
+      where: {
+        project_id: { [Op.in]: scopeProjectIds },
+        status: TaskStatus.DONE,
+        updated_at: { [Op.gte]: weekAgo },
+      },
+    }),
+  ]);
+
+  return { activeProjects, tasksDueToday, teamMembers, completedThisWeek };
+}
 
   private async getMyUpcomingTasks(userId: string, scopeProjectIds: string[]) {
     if (scopeProjectIds.length === 0) return [];
