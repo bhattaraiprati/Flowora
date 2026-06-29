@@ -7,7 +7,12 @@ class NotificationSocketService {
   private socket: Socket | null = null;
 
   connect(token: string) {
-    if (this.socket) return this.socket;
+    if (this.socket?.connected) return this.socket;
+
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
 
     const baseUrl = API_BASE_URL.replace(/\/$/, '');
 
@@ -15,21 +20,27 @@ class NotificationSocketService {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 5000,
       timeout: 10000,
+      autoConnect: true,
     });
 
     this.socket.on('connect', () => {
-      console.log('🔔 Notification socket connected:', this.socket?.id);
+      console.log('Notification socket connected:', this.socket?.id);
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('🔔 Notification socket disconnected:', reason);
+      console.log('🔌 Notification socket disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        this.socket?.connect();
+      }
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('🔔 Notification socket connection error:', error.message);
+      console.warn('Notification socket connection error:', error.message);
+      console.warn('Make sure the backend server is running at:', baseUrl);
     });
 
     return this.socket;

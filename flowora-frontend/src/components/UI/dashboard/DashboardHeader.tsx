@@ -70,7 +70,6 @@ export default function DashboardHeader() {
     queryFn: organizationApi.getMyOrganizations,
   });
 
-  // ── Initial load via REST ───────────────────────────────────────────────────
   const { data: notificationsData } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => notificationApi.getNotifications(1, 20),
@@ -83,40 +82,52 @@ export default function DashboardHeader() {
     refetchOnWindowFocus: false,
   });
 
-  const notifications = notificationsData?.data ?? [];
+  const notifications = Array.isArray(notificationsData?.data) ? notificationsData.data : [];
   const unreadCount = unreadData?.count ?? 0;
 
-  // ── WebSocket: live updates ──────────────────────────────────────────────────
-  useEffect(() => {
+  
+
+useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+      console.warn('⚠️ No auth token found - skipping notification socket connection');
+      return;
+    }
 
-    const socket = notificationSocketService.connect(token);
+    try {
+      const socket = notificationSocketService.connect(token);
 
-    const handleNewNotification = (notification: Notification) => {
-      // Prepend new notification to the cached list
-      queryClient.setQueryData(['notifications'], (old: any) => {
-        if (!old) return old;
-        return { ...old, data: [notification, ...old.data] };
-      });
-      // Bump unread count locally — socket may also emit unread_count separately
-      queryClient.setQueryData(['notifications-unread-count'], (old: any) => ({
-        count: (old?.count ?? 0) + 1,
-      }));
-    };
+      const handleNewNotification = (notification: Notification) => {
+        queryClient.setQueryData(['notifications'], (old: any) => {
+          const existingData = Array.isArray(old?.data) ? old.data : [];
+          return {
+            data: [notification, ...existingData],
+            total: (old?.total ?? existingData.length) + 1,
+            page: old?.page ?? 1,
+            totalPages: old?.totalPages ?? 1,
+          };
+        });
 
-    const handleUnreadCount = ({ count }: { count: number }) => {
-      queryClient.setQueryData(['notifications-unread-count'], { count });
-    };
+        queryClient.setQueryData(['notifications-unread-count'], (old: any) => ({
+          count: (old?.count ?? 0) + 1,
+        }));
+      };
 
-    socket.on('notification:new', handleNewNotification);
-    socket.on('notification:unread_count', handleUnreadCount);
+      const handleUnreadCount = ({ count }: { count: number }) => {
+        queryClient.setQueryData(['notifications-unread-count'], { count });
+      };
 
-    return () => {
-      socket.off('notification:new', handleNewNotification);
-      socket.off('notification:unread_count', handleUnreadCount);
-    };
-  }, [queryClient]);
+      socket.on('notification:new', handleNewNotification);
+      socket.on('notification:unread_count', handleUnreadCount);
+
+      return () => {
+        socket.off('notification:new', handleNewNotification);
+        socket.off('notification:unread_count', handleUnreadCount);
+      };
+    } catch (error) {
+      console.error('Failed to initialize notification socket:', error);
+    }
+}, [queryClient]);
 
   // ── Click-outside handling (unchanged) ───────────────────────────────────────
   useEffect(() => {
@@ -129,32 +140,34 @@ export default function DashboardHeader() {
   }, []);
 
   // ── Actions ───────────────────────────────────────────────────────────────────
-  const handleMarkAllRead = useCallback(async () => {
-    // Optimistic update
+  // handleMarkAllRead — same defensive guard
+const handleMarkAllRead = useCallback(async () => {
     queryClient.setQueryData(['notifications'], (old: any) => {
-      if (!old) return old;
-      return { ...old, data: old.data.map((n: Notification) => ({ ...n, is_read: true })) };
+      const existingData = Array.isArray(old?.data) ? old.data : [];
+      return {
+        ...old,
+        data: existingData.map((n: Notification) => ({ ...n, is_read: true })),
+      };
     });
     queryClient.setQueryData(['notifications-unread-count'], { count: 0 });
 
-    // Prefer socket if connected (instant + syncs other open tabs via server broadcast)
     const socket = notificationSocketService.getSocket();
     if (socket?.connected) {
       notificationSocketService.markAllAsRead();
     } else {
       await notificationApi.markAllAsRead();
     }
-  }, [queryClient]);
+}, [queryClient]);
 
-  const handleNotificationClick = useCallback(
+  // handleNotificationClick — same pattern
+const handleNotificationClick = useCallback(
     (notification: Notification) => {
-      // Mark as read (optimistic)
       if (!notification.is_read) {
         queryClient.setQueryData(['notifications'], (old: any) => {
-          if (!old) return old;
+          const existingData = Array.isArray(old?.data) ? old.data : [];
           return {
             ...old,
-            data: old.data.map((n: Notification) =>
+            data: existingData.map((n: Notification) =>
               n.id === notification.id ? { ...n, is_read: true } : n
             ),
           };
@@ -172,23 +185,20 @@ export default function DashboardHeader() {
       }
 
       setShowNotifications(false);
-
-      // Navigate based on reference_type + reference_id
       const route = getNotificationRoute(notification, activeOrgId);
-      if (route) {
-        router.push(route);
-      }
+      if (route) router.push(route);
     },
     [queryClient, activeOrgId, router]
-  );
+);
 
-  const handleDeleteNotification = useCallback(
+  // handleDeleteNotification — same pattern
+const handleDeleteNotification = useCallback(
     (e: React.MouseEvent, notificationId: string) => {
-      e.stopPropagation(); // don't trigger handleNotificationClick
+      e.stopPropagation();
 
       queryClient.setQueryData(['notifications'], (old: any) => {
-        if (!old) return old;
-        return { ...old, data: old.data.filter((n: Notification) => n.id !== notificationId) };
+        const existingData = Array.isArray(old?.data) ? old.data : [];
+        return { ...old, data: existingData.filter((n: Notification) => n.id !== notificationId) };
       });
 
       const socket = notificationSocketService.getSocket();
@@ -199,7 +209,7 @@ export default function DashboardHeader() {
       }
     },
     [queryClient]
-  );
+);
 
   return (
     <header className="h-14 bg-white border-b border-slate-100 flex items-center px-4 gap-4 sticky top-0 z-10">

@@ -1,5 +1,6 @@
 import { AuthResponse, LoginCredentials, RegisterCredentials } from '@/types/authInterface';
 import { ChatRoomSummary } from '@/types/ChatInterface';
+import { DashboardData } from '@/types/DashboardInterface';
 import { PaginatedNotifications } from '@/types/NotificationInterface';
 import { RegisterOrganization } from '@/types/OrganizationInterface';
 import { TaskWithProject } from '@/types/TaskInterface';
@@ -371,6 +372,13 @@ export const notificationApi = {
 
   deleteNotification: async (id: string) => {
     const response = await api.delete(`/api/notifications/${id}`);
+    return response.data;
+  },
+};
+
+export const dashboardApi = {
+  getDashboard: async (organizationId: string): Promise<DashboardData> => {
+    const response = await api.get(`/api/dashboard/${organizationId}`);
     return response.data;
   },
 };
