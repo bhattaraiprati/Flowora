@@ -12,3 +12,4 @@ export class UserController {
         return this.userService.registerOrganizer(body);
     }
 }
+

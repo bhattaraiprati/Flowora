@@ -14,6 +14,7 @@ import { InvitationModule } from './invitation/invitation.module';
 import { MemberModule } from './member/member.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import databaseConfig from './config/database.config';
 import redisConfig from './config/redis.config';
 import jwtConfig from './config/jwt.config';
@@ -39,6 +40,7 @@ import mailConfig from './config/mail.config';
     MemberModule,
     ChatModule,
     NotificationsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
