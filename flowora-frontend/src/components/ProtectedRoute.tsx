@@ -4,12 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 
-/**
- * Wrap any layout or page with this component to guard it.
- * - While Zustand is still rehydrating from localStorage, it shows a loading screen.
- * - Once hydrated, validates the token and redirects to /login if invalid or expired.
- * - Continuously checks token validity to handle mid-session expiration.
- */
 export default function ProtectedRoute({
   children,
 }: {

@@ -21,7 +21,7 @@ export function proxy(request: NextRequest) {
   if (isDashboard && token) {
     try {
       const decoded = jwtDecode<DecodedToken>(token);
-      if (request.nextUrl.pathname.startsWith('/dashboard/admin') && decoded.role !== 'admin') {
+      if (request.nextUrl.pathname.startsWith('/dashboard/admin') && decoded.role === 'ADMIN') {
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
     } catch {

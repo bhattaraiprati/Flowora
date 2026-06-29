@@ -13,6 +13,14 @@ export default function DashboardIndexPage() {
   const router = useRouter();
   const { user, isTokenValid, clearAuth } = useAuthStore();
 
+  // Redirect super admins to super admin panel
+  useEffect(() => {
+    console.log('User role:', user?.role); // Debugging line
+    if (user?.role === 'SUPER_ADMIN') {
+      router.push('/super-admin');
+    }
+  }, [user, router]);
+
   const { data: organizations, isLoading, isError, error } = useQuery({
     queryKey: ['myOrganizations'],
     queryFn: organizationApi.getMyOrganizations,

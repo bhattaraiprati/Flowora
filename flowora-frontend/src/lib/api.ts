@@ -382,3 +382,67 @@ export const dashboardApi = {
     return response.data;
   },
 };
+
+export const superAdminApi = {
+  getStats: async () => {
+    const response = await api.get('/api/super-admin/stats');
+    return response.data;
+  },
+
+  getOrganizations: async (params?: {
+    status?: 'all' | 'pending' | 'approved' | 'suspended';
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.status && params.status !== 'all') queryParams.append('status', params.status);
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.page) queryParams.append('page', String(params.page));
+    if (params?.limit) queryParams.append('limit', String(params.limit));
+
+    const response = await api.get(`/api/super-admin/organizations?${queryParams.toString()}`);
+    return response.data;
+  },
+
+  getOrganizationDetails: async (organizationId: string) => {
+    const response = await api.get(`/api/super-admin/organizations/${organizationId}`);
+    return response.data;
+  },
+
+  approveOrganization: async (organizationId: string) => {
+    const response = await api.post(`/api/super-admin/organizations/${organizationId}/approve`);
+    return response.data;
+  },
+
+  rejectOrganization: async (organizationId: string) => {
+    const response = await api.post(`/api/super-admin/organizations/${organizationId}/reject`);
+    return response.data;
+  },
+
+  suspendOrganization: async (organizationId: string) => {
+    const response = await api.post(`/api/super-admin/organizations/${organizationId}/suspend`);
+    return response.data;
+  },
+
+  unsuspendOrganization: async (organizationId: string) => {
+    const response = await api.post(`/api/super-admin/organizations/${organizationId}/unsuspend`);
+    return response.data;
+  },
+
+  getPlatformActivity: async (params?: { days?: number }) => {
+    const queryParams = params?.days ? `?days=${params.days}` : '';
+    const response = await api.get(`/api/super-admin/activity${queryParams}`);
+    return response.data;
+  },
+
+  getPendingApprovals: async () => {
+    const response = await api.get('/api/super-admin/pending-approvals');
+    return response.data;
+  },
+
+  deleteOrganization: async (organizationId: string) => {
+    const response = await api.delete(`/api/super-admin/organizations/${organizationId}`);
+    return response.data;
+  },
+};

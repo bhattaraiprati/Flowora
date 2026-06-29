@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
   profile_picture?: string;
   avatarInitials?: string;
 }
@@ -11,7 +11,7 @@ export interface User {
 export interface DecodedToken {
   id: string;
   email: string;
-  role: string;
+  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
   iat?: number;
   exp?: number;
 }

@@ -35,7 +35,12 @@ const Page = () => {
   // Redirect already-authenticated users with valid tokens away from login
   useEffect(() => {
     if (_hasHydrated && isAuthenticated && isTokenValid()) {
-      router.replace('/dashboard');
+      const user = useAuthStore.getState().user;
+      if (user?.role === 'SUPER_ADMIN') {
+        router.replace('/super-admin');
+      } else {
+        router.replace('/dashboard');
+      }
     }
   }, [_hasHydrated, isAuthenticated, isTokenValid, router]);
 
@@ -76,7 +81,12 @@ const Page = () => {
         localStorage.removeItem('redirect_after_login');
         router.replace(redirectUrl);
       } else {
-        router.replace('/dashboard');
+        // Redirect based on user role
+        if (user.role === 'SUPER_ADMIN') {
+          router.replace('/super-admin');
+        } else {
+          router.replace('/dashboard');
+        }
       }
     },
     onError: (err: Error) => {
