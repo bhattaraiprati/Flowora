@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   MoreVertical,
   Eye,
   CheckCircle,
   Ban,
-  Trash2,
   Clock,
   Building2,
   Users,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { superAdminApi } from '@/lib/api';
+import OrganizationDetailsModal from './OrganizationDetailsModal';
 
 interface Organization {
   id: string;
@@ -23,7 +23,7 @@ interface Organization {
   email: string;
   industry: string;
   size: string;
-  status: 'pending' | 'approved' | 'suspended';
+  status: 'PENDING_APPROVAL' | 'ACTIVE' | 'suspended';
   memberCount: number;
   projectCount: number;
   createdAt: string;
@@ -37,13 +37,13 @@ interface OrganizationTableProps {
 
 function StatusBadge({ status }: { status: Organization['status'] }) {
   const config = {
-    pending: {
-      label: 'Pending',
+    PENDING_APPROVAL: {
+      label: 'Pending Approval',
       icon: Clock,
       className: 'bg-amber-100 text-amber-700 border-amber-200',
     },
-    approved: {
-      label: 'Approved',
+    ACTIVE: {
+      label: 'ACTIVE',
       icon: CheckCircle,
       className: 'bg-green-100 text-green-700 border-green-200',
     },
@@ -68,7 +68,13 @@ function StatusBadge({ status }: { status: Organization['status'] }) {
   );
 }
 
-function ActionMenu({ organization }: { organization: Organization }) {
+function ActionMenu({
+  organization,
+  onViewDetails
+}: {
+  organization: Organization;
+  onViewDetails: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -101,7 +107,7 @@ function ActionMenu({ organization }: { organization: Organization }) {
   });
 
   return (
-    <div className="relative">
+    <div className="relative z-40">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -118,13 +124,16 @@ function ActionMenu({ organization }: { organization: Organization }) {
           <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
             <button
               className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2 text-slate-700"
-              onClick={() => window.open(`/super-admin/organizations/${organization.id}`, '_blank')}
+              onClick={() => {
+                setIsOpen(false);
+                onViewDetails();
+              }}
             >
               <Eye className="w-4 h-4" />
               View Details
             </button>
 
-            {organization.status === 'pending' && (
+            {organization.status === 'PENDING_APPROVAL' && (
               <button
                 className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2 text-green-600"
                 onClick={() => approveMutation.mutate(organization.id)}
@@ -135,7 +144,7 @@ function ActionMenu({ organization }: { organization: Organization }) {
               </button>
             )}
 
-            {organization.status === 'approved' && (
+            {organization.status === 'ACTIVE' && (
               <button
                 className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2 text-red-600"
                 onClick={() => suspendMutation.mutate(organization.id)}
@@ -164,9 +173,22 @@ function ActionMenu({ organization }: { organization: Organization }) {
 }
 
 export default function OrganizationTable({ organizations, isLoading }: OrganizationTableProps) {
-  const orgsData: Organization[] = Array.isArray(organizations) 
-    ? organizations 
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const orgsData: Organization[] = Array.isArray(organizations)
+    ? organizations
     : (organizations as any)?.organizations || [];
+
+  const handleViewDetails = (org: Organization) => {
+    setSelectedOrg(org);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedOrg(null);
+  };
 
   if (isLoading) {
     return (
@@ -193,10 +215,37 @@ export default function OrganizationTable({ organizations, isLoading }: Organiza
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-slate-50 border-b border-slate-200">
+    <>
+      {selectedOrg && (
+        <OrganizationDetailsModal
+          organization={{
+            id: selectedOrg.id,
+            name: selectedOrg.name,
+            slug: selectedOrg.slug,
+            email: selectedOrg.email,
+            industry: selectedOrg.industry,
+            size: selectedOrg.size,
+            status: selectedOrg.status === 'PENDING_APPROVAL' ? 'pending' : selectedOrg.status === 'ACTIVE' ? 'approved' : 'suspended',
+            createdAt: selectedOrg.createdAt,
+            adminName: selectedOrg.adminName,
+            memberCount: selectedOrg.memberCount,
+            projectCount: selectedOrg.projectCount,
+            taskCount: 0, // This should come from backend
+            activityStats: {
+              totalLogins: 0, // This should come from backend
+              lastLoginAt: new Date().toISOString(), // This should come from backend
+              tasksCompleted: 0, // This should come from backend
+              projectsCreated: selectedOrg.projectCount,
+            },
+          }}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+        />
+      )}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto">
+        <table className="w-full pb-10">
+          <thead className="bg-slate-50 pb-10 border-b border-slate-200">
             <tr>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 Organization
@@ -262,13 +311,17 @@ export default function OrganizationTable({ organizations, isLoading }: Organiza
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <ActionMenu organization={org} />
+                  <ActionMenu
+                    organization={org}
+                    onViewDetails={() => handleViewDetails(org)}
+                  />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

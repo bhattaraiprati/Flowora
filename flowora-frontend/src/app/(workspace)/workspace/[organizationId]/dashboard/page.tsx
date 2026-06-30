@@ -131,7 +131,7 @@ export default function OrganizationDashboardPage() {
           <h1 className="text-xl font-bold text-slate-900">{activeOrg.name} Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">
             Logged in as <span className="font-semibold text-slate-700">{user?.name}</span> • 
-            Role: <span className="inline-flex items-center rounded-md bg-brand/10 px-2 py-1 text-xs font-medium text-brand ring-1 ring-inset ring-brand/20 ml-2">{activeOrg.memberRole}</span>
+            Role: <span className="inline-flex items-center rounded-md bg-brand/10 px-2 py-1 text-xs font-medium text-brand ring-1 ring-inset ring-brand/20 ml-2">{activeOrg.memberRole || 'Member'}</span>
           </p>
         </div>
       </div>

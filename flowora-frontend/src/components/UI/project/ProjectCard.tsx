@@ -69,11 +69,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
     },
   });
 
-  const handleFavoriteClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleFavoriteMutation.mutate();
-  };
+  // const handleFavoriteClick = (e: React.MouseEvent) => {
+  //   e.preventDefault();
+  //   e.stopPropagation();
+  //   toggleFavoriteMutation.mutate();
+  // };
 
   const handleChatClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -88,13 +88,13 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
           <button
             onClick={handleChatClick}
-            className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1.5 rounded-lg bg-blue-50 transition-colors "
             aria-label="Open chat"
             title="Open project chat"
           >
             <MessageSquare className="w-4 h-4 text-blue-500" />
           </button>
-          <button
+          {/* <button
             onClick={handleFavoriteClick}
             className="p-1 rounded-lg hover:bg-slate-100 transition-colors"
             aria-label="Toggle favorite"
@@ -106,7 +106,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                   : 'text-slate-300 hover:text-yellow-400'
               }`}
             />
-          </button>
+          </button> */}
         </div>
 
         {/* Project Color Strip */}

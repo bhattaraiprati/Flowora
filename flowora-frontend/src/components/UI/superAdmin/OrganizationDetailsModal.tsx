@@ -1,9 +1,7 @@
 'use client';
 
-import React from 'react';
 import {
   X,
-  Building2,
   Users,
   Calendar,
   Globe,

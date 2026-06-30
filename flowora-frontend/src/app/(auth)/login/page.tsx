@@ -62,7 +62,7 @@ const Page = () => {
         id: string;
         name: string;
         email: string;
-        role: string;
+        role: "USER" | "ADMIN" | "SUPER_ADMIN";
         avatarInitials?: string;
       };
       expiresAt: number;

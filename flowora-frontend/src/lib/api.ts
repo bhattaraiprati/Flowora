@@ -1,4 +1,4 @@
-import { AuthResponse, LoginCredentials, RegisterCredentials } from '@/types/authInterface';
+import { AuthResponse, LoginCredentials, RegisterCredentials, User } from '@/types/authInterface';
 import { ChatRoomSummary } from '@/types/ChatInterface';
 import { DashboardData } from '@/types/DashboardInterface';
 import { PaginatedNotifications } from '@/types/NotificationInterface';
@@ -51,13 +51,7 @@ api.interceptors.response.use(
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<{
     token: string;
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      role: string;
-      profile_picture?: string;
-    };
+    user: User;
     expiresAt: number;
     expiresIn: string;
     message: string;
@@ -90,9 +84,6 @@ export const authApi = {
     }
   },
 };
-export const userApi = {
-
-}
 
 export const organizationApi = {
   createOrganization: async (data: {
