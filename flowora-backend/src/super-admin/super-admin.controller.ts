@@ -52,13 +52,13 @@ export class SuperAdminController {
   @Post('organizations/:organizationId/approve')
   async approveOrganization(
     @Param('organizationId') organizationId: string,
-    @Body() body: ApproveOrganizationDto,
+    // @Body() body: ApproveOrganizationDto,
     @Req() req: RequestWithUser,
   ) {
     return this.superAdminService.approveOrganization(
       organizationId,
       req.user.id,
-      body.notes,
+      // body.notes,
     );
   }
 

@@ -182,7 +182,7 @@ export class SuperAdminService {
     };
   }
 
-  async approveOrganization(organizationId: string, superAdminId: string, notes?: string) {
+  async approveOrganization(organizationId: string, superAdminId: string) {
     const organization = await this.organizationModel.findByPk(organizationId);
 
     if (!organization) {
@@ -204,7 +204,7 @@ export class SuperAdminService {
     };
   }
 
-  async rejectOrganization(organizationId: string, reason: string) {
+  async rejectOrganization(organizationId: string, reason?: string) {
     const organization = await this.organizationModel.findByPk(organizationId);
 
     if (!organization) {
@@ -216,7 +216,7 @@ export class SuperAdminService {
     }
 
     organization.status = OrganizationStatus.REJECTED;
-    organization.rejection_reason = reason;
+    organization.rejection_reason = reason || null;
     await organization.save();
 
     return {
@@ -225,7 +225,7 @@ export class SuperAdminService {
     };
   }
 
-  async suspendOrganization(organizationId: string, reason: string) {
+  async suspendOrganization(organizationId: string, reason?: string) {
     const organization = await this.organizationModel.findByPk(organizationId, {
       include: [{ model: this.organizationMemberModel, as: 'members' }],
     });
